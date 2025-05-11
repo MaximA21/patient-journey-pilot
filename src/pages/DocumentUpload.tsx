@@ -1,13 +1,15 @@
+
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAppContext, Document } from "@/context/AppContext";
 import { uploadDocument, processDocument } from "@/lib/supabase";
 import Header from "@/components/Header";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { Upload, X, ImagePlus, FileText } from "lucide-react";
+import { Upload, X, ImagePlus, FileText, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const DocumentUpload: React.FC = () => {
   const { mode, addUploadedDocument } = useAppContext();
@@ -15,8 +17,14 @@ const DocumentUpload: React.FC = () => {
   const [previews, setPreviews] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState<Array<{id: number, url: string}>>([]);
+  const [processingComplete, setProcessingComplete] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Extract patient ID from URL search params
+  const queryParams = new URLSearchParams(location.search);
+  const patientId = queryParams.get('patientId');
   
   // If in accessibility mode, redirect to home
   useEffect(() => {
@@ -65,8 +73,8 @@ const DocumentUpload: React.FC = () => {
       const uploadedDocuments: Array<{id: number, url: string}> = [];
       
       for (const file of files) {
-        // Pass null instead of default UUID to avoid foreign key constraint issues
-        const result = await uploadDocument(file, null);
+        // Pass patientId if available
+        const result = await uploadDocument(file, patientId);
         if (result.success && result.data && result.data[0]) {
           const documentId = result.data[0].id;
           const documentUrl = result.url;
@@ -83,40 +91,93 @@ const DocumentUpload: React.FC = () => {
           };
           
           addUploadedDocument(documentObj);
+          
+          // Let the user know we're processing the document
+          toast.info(`Processing document: ${file.name}`);
+          
+          // Process the document
+          try {
+            const processResult = await processDocument(documentId, documentUrl);
+            
+            if (processResult.success) {
+              toast.success(`Document ${file.name} processed successfully`);
+            } else {
+              toast.error(`Error processing document ${file.name}: ${processResult.error}`);
+            }
+          } catch (processError) {
+            console.error(`Error processing document ${documentId}:`, processError);
+            toast.error(`Failed to process document ${file.name}`);
+          }
         } else {
-          throw new Error("Failed to upload document");
+          throw new Error(`Failed to upload document: ${file.name}`);
         }
       }
       
       setUploadedDocs(uploadedDocuments);
       
-      // Process each document after upload
-      for (const doc of uploadedDocuments) {
-        try {
-          // Let the user know we're processing the document
-          toast.info(`Processing document ID: ${doc.id}`);
-          
-          // Call the process-document edge function
-          const processResult = await processDocument(doc.id, doc.url);
-          
-          if (processResult.success) {
-            toast.success(`Document ${doc.id} processed successfully`);
-          } else {
-            toast.error(`Error processing document ${doc.id}: ${processResult.error}`);
-          }
-        } catch (processError) {
-          console.error(`Error processing document ${doc.id}:`, processError);
-          toast.error(`Failed to process document ${doc.id}`);
-        }
+      // If patientId is provided, trigger document analysis after processing
+      if (patientId && uploadedDocuments.length > 0) {
+        await triggerDocumentAnalysis(patientId, uploadedDocuments.map(doc => doc.id));
       }
       
       toast.success("Documents uploaded successfully!");
-      navigate("/success");
+      setProcessingComplete(true);
+      
+      // Navigate after a delay to allow user to see the success message
+      setTimeout(() => {
+        if (patientId) {
+          navigate(`/patients/${patientId}`);
+        } else {
+          navigate("/success");
+        }
+      }, 2000);
+      
     } catch (error) {
       console.error("Error uploading documents:", error);
       toast.error("Failed to upload documents. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  // Function to trigger document analysis
+  const triggerDocumentAnalysis = async (patientId: string, documentIds: number[]) => {
+    try {
+      toast.info("Analyzing documents...");
+      
+      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/complete-uploads`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabase.supabaseKey}`
+        },
+        body: JSON.stringify({
+          patientId,
+          documentIds
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success("Document analysis complete!");
+      } else if (result.message === "Some documents still processing") {
+        // Some documents are still processing
+        toast.info(`${result.processedCount} of ${result.processedCount + result.unprocessedCount} documents processed`);
+        
+        // Set up a retry after a delay
+        setTimeout(() => {
+          triggerDocumentAnalysis(patientId, documentIds);
+        }, 5000); // 5 seconds
+      } else {
+        toast.error("Document analysis failed");
+      }
+      
+      return result;
+    } catch (error) {
+      console.error("Error analyzing documents:", error);
+      toast.error("Failed to analyze documents");
+      return { success: false, error };
     }
   };
   
@@ -140,6 +201,7 @@ const DocumentUpload: React.FC = () => {
             
             <p className="text-uber-gray-600 mb-6">
               Please upload your medical documents, prescriptions, or test results.
+              {patientId && <span className="font-medium"> These will be linked to the selected patient.</span>}
             </p>
             
             <input
@@ -218,11 +280,24 @@ const DocumentUpload: React.FC = () => {
             <div className="pt-4 border-t border-uber-gray-100">
               <Button
                 onClick={handleSubmit}
-                className="w-full bg-uber-black text-white rounded-md hover:bg-uber-gray-900 h-14 text-base flex items-center justify-center gap-3"
+                className={`w-full h-14 text-white rounded-md hover:bg-uber-gray-900 text-base flex items-center justify-center gap-3 ${
+                  processingComplete ? "bg-green-600 hover:bg-green-700" : "bg-uber-black"
+                }`}
                 disabled={files.length === 0 || isLoading}
               >
-                <Upload size={20} />
-                Upload Documents
+                {processingComplete ? (
+                  <>
+                    <CheckCircle size={20} />
+                    Documents Processed
+                  </>
+                ) : isLoading ? (
+                  "Processing..."
+                ) : (
+                  <>
+                    <Upload size={20} />
+                    Upload Documents
+                  </>
+                )}
               </Button>
             </div>
           </Card>
