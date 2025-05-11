@@ -76,6 +76,7 @@ const DocumentUpload: React.FC = () => {
     try {
       const uploadedDocuments: Array<{id: number, url: string}> = [];
       
+      // Upload each file
       for (const file of files) {
         // Pass patientId if available
         const result = await uploadDocument(file, patientId);
