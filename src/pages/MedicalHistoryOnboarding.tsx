@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,22 +12,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { ChevronRight, Save, AlertTriangle, CheckCircle, X, Edit } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
-
-interface Question {
-  id: string;
-  text: string;
-  answer: string | null;
-  confidence: number;
-  answerType: string;
-  description?: string;
-  source?: string | null;
-}
-
-interface MedicalHistoryForm {
-  id: string;
-  name: string;
-  questions: Question[];
-}
+import { Question, MedicalHistoryForm } from "@/types/medicalHistory";
 
 const CONFIDENCE_THRESHOLD = 0.7; // Questions below this confidence need review
 
@@ -67,12 +51,24 @@ const MedicalHistoryOnboarding: React.FC = () => {
         return;
       }
       
-      // Initialize the medical history form
+      // Initialize the medical history form with proper typing
       const form: MedicalHistoryForm = {
         id: formData.id,
         name: formData.name || "Medical History",
-        questions: Array.isArray(formData.questions) ? formData.questions : []
+        questions: Array.isArray(formData.questions) 
+          ? formData.questions.map((q: any) => ({
+              id: q.id || String(Math.random()),
+              text: q.text || "Unknown question",
+              answer: q.answer,
+              confidence: typeof q.confidence === 'number' ? q.confidence : 0,
+              answerType: q.answerType || "string",
+              description: q.description,
+              source: q.source
+            }))
+          : []
       };
+      
+      console.log("Medical history form:", form);
       
       // Filter questions that need review (null answers or low confidence)
       const toReview = form.questions.filter(q => 
@@ -206,7 +202,8 @@ const MedicalHistoryOnboarding: React.FC = () => {
     );
   }
   
-  if (questionsToReview.length === 0) {
+  // Make sure questionsToReview is defined and properly checked
+  if (!questionsToReview.length) {
     return (
       <div className="min-h-screen bg-uber-gray-50 flex flex-col">
         <Header title="Medical History Complete" showBackButton />

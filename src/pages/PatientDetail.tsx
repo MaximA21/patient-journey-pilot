@@ -9,6 +9,7 @@ import { User, Phone, Mail, MapPin, Calendar, Heart, FileText, ClipboardList, Al
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { toast } from "sonner";
+import { Question } from "@/types/medicalHistory";
 
 interface Patient {
   id: string;
@@ -26,14 +27,6 @@ interface Patient {
   weight: number;
   insurance_provider: string;
   insurance_number: number;
-}
-
-interface Question {
-  id: string;
-  text: string;
-  answer: string | null;
-  confidence: number;
-  answerType: string;
 }
 
 const PatientDetail: React.FC = () => {
@@ -87,12 +80,25 @@ const PatientDetail: React.FC = () => {
       }
       
       if (data && data.questions && Array.isArray(data.questions)) {
+        // Map the questions from JSON to our Question type
+        const typedQuestions: Question[] = data.questions.map((q: any) => ({
+          id: q.id || String(Math.random()),
+          text: q.text || "Unknown question",
+          answer: q.answer,
+          confidence: typeof q.confidence === 'number' ? q.confidence : 0,
+          answerType: q.answerType || "string",
+          description: q.description,
+          source: q.source
+        }));
+        
         // Check if there are questions that need review
-        const questionsNeedingReview = data.questions.filter((q: Question) => 
+        const questionsNeedingReview = typedQuestions.filter(q => 
           q.answer === null || q.confidence < CONFIDENCE_THRESHOLD
         );
         
-        setMedicalHistoryQuestions(data.questions);
+        console.log("Questions needing review:", questionsNeedingReview.length);
+        
+        setMedicalHistoryQuestions(typedQuestions);
         setMedicalHistoryNeeded(questionsNeedingReview.length > 0);
       }
     } catch (error) {
@@ -305,7 +311,7 @@ const PatientDetail: React.FC = () => {
                           .map(question => (
                             <div key={question.id} className="border-b border-gray-100 pb-2">
                               <p className="text-sm text-uber-gray-500">{question.text}</p>
-                              <p className="font-medium">{question.answer}</p>
+                              <p className="font-medium">{String(question.answer)}</p>
                             </div>
                           ))}
                         {medicalHistoryNeeded && (
