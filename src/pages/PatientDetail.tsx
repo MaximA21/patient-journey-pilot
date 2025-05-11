@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -11,8 +10,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { Question } from "@/types/medicalHistory";
 
-// The specific form ID we want to use - updated to "1"
-const SPECIFIC_FORM_ID = "1";
+// The specific form ID we want to use - updated to numeric 1
+const SPECIFIC_FORM_ID = 1;
 const CONFIDENCE_THRESHOLD = 0.7; // Questions below this confidence need review
 
 interface Patient {

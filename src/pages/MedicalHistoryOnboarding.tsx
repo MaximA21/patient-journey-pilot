@@ -15,7 +15,7 @@ import { useAppContext } from "@/context/AppContext";
 import { Question, MedicalHistoryForm } from "@/types/medicalHistory";
 
 const CONFIDENCE_THRESHOLD = 0.7; // Questions below this confidence need review
-const SPECIFIC_FORM_ID = "1"; // Updated to use ID "1"
+const SPECIFIC_FORM_ID = 1; // Updated to use numeric ID 1
 const FORM_NAME = "bogen1";
 
 const MedicalHistoryOnboarding: React.FC = () => {
