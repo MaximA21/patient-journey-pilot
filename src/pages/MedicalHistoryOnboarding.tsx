@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,7 +60,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
       
       console.log(`Fetching medical history form with id: ${formId}`);
       
-      // Using maybeSingle() to handle cases where the row might or might not exist
+      // Changed from .single() to .eq('id', formId) to ensure we get the exact form we want
       const { data: formData, error: formError } = await supabase
         .from('medical_history_form')
         .select('*')

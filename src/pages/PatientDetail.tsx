@@ -72,6 +72,7 @@ const PatientDetail: React.FC = () => {
   const fetchMedicalHistory = async () => {
     try {
       // Get the most recent medical history form for this patient
+      // Updated to order by id desc and use .maybeSingle() instead of .single()
       const { data, error } = await supabase
         .from('medical_history_form')
         .select('*')
