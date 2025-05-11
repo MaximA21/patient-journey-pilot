@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { toast } from "sonner";
-import { ChevronRight, Save, AlertTriangle, CheckCircle, X, Edit } from "lucide-react";
+import { ChevronRight, Save, AlertTriangle, CheckCircle, X, Edit, Info } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { Question, MedicalHistoryForm } from "@/types/medicalHistory";
 
@@ -32,6 +31,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
   const [userAnswers, setUserAnswers] = useState<Record<string, any>>({});
   const [questionsToReview, setQuestionsToReview] = useState<Question[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
   
   useEffect(() => {
     fetchMedicalHistoryForm();
@@ -137,11 +137,56 @@ const MedicalHistoryOnboarding: React.FC = () => {
       ...prev,
       [questionId]: value
     }));
+    
+    // Clear validation error when user types something
+    if (validationErrors[questionId]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [questionId]: false
+      }));
+    }
+  };
+  
+  const validateForm = (): boolean => {
+    const errors: Record<string, boolean> = {};
+    let isValid = true;
+    
+    // Check each question that needs review
+    questionsToReview.forEach(question => {
+      const answer = userAnswers[question.id];
+      
+      // For text/string inputs, check if empty or only whitespace
+      if (question.answerType === 'string' || question.answerType === 'text') {
+        if (answer === undefined || answer === null || answer.trim() === '') {
+          errors[question.id] = true;
+          isValid = false;
+        }
+      }
+      
+      // For boolean inputs, make sure they're explicitly set (not just default)
+      if (question.answerType === 'boolean' && answer === undefined) {
+        errors[question.id] = true;
+        isValid = false;
+      }
+    });
+    
+    setValidationErrors(errors);
+    
+    if (!isValid) {
+      toast.error("Please answer all questions before saving");
+    }
+    
+    return isValid;
   };
   
   const handleSaveAnswers = async () => {
     try {
       if (!medicalHistoryForm || !formIdParam) return;
+      
+      // Validate form before saving
+      if (!validateForm()) {
+        return;
+      }
       
       setIsSaving(true);
       
@@ -197,6 +242,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
   
   const renderInputForQuestion = (question: Question) => {
     const answerType = question.answerType?.toLowerCase() || "string";
+    const hasError = validationErrors[question.id];
     
     switch (answerType) {
       case "boolean":
@@ -206,10 +252,17 @@ const MedicalHistoryOnboarding: React.FC = () => {
               id={`question-${question.id}`}
               checked={userAnswers[question.id] === true}
               onCheckedChange={(checked) => handleAnswerChange(question.id, checked)}
+              className={hasError ? "border-red-500" : ""}
             />
             <span className="text-sm text-gray-500">
               {userAnswers[question.id] ? "Yes" : "No"}
             </span>
+            {hasError && (
+              <div className="flex items-center text-red-500 text-xs mt-1">
+                <Info size={12} className="mr-1" />
+                Please select an option
+              </div>
+            )}
           </div>
         );
         
@@ -217,21 +270,37 @@ const MedicalHistoryOnboarding: React.FC = () => {
       case "string":
       default:
         return question.text.includes("history") || question.text.toLowerCase().includes("describe") ? (
-          <Textarea
-            id={`question-${question.id}`}
-            value={userAnswers[question.id] || ""}
-            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-            placeholder={`Enter ${question.text.toLowerCase()}`}
-            className="mt-1 w-full"
-          />
+          <div>
+            <Textarea
+              id={`question-${question.id}`}
+              value={userAnswers[question.id] || ""}
+              onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+              placeholder={`Enter ${question.text.toLowerCase()}`}
+              className={`mt-1 w-full ${hasError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+            />
+            {hasError && (
+              <div className="flex items-center text-red-500 text-xs mt-1">
+                <Info size={12} className="mr-1" />
+                This field is required
+              </div>
+            )}
+          </div>
         ) : (
-          <Input
-            id={`question-${question.id}`}
-            value={userAnswers[question.id] || ""}
-            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-            placeholder={`Enter ${question.text.toLowerCase()}`}
-            className="mt-1 w-full"
-          />
+          <div>
+            <Input
+              id={`question-${question.id}`}
+              value={userAnswers[question.id] || ""}
+              onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+              placeholder={`Enter ${question.text.toLowerCase()}`}
+              className={`mt-1 w-full ${hasError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+            />
+            {hasError && (
+              <div className="flex items-center text-red-500 text-xs mt-1">
+                <Info size={12} className="mr-1" />
+                This field is required
+              </div>
+            )}
+          </div>
         );
     }
   };
@@ -348,6 +417,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
                   <p className="text-gray-600">
                     {questionsToReview.length} question{questionsToReview.length !== 1 ? 's' : ''} need{questionsToReview.length === 1 ? 's' : ''} your review.
                     Some information was extracted from your documents but needs confirmation.
+                    <span className="font-medium ml-1">All fields are required.</span>
                   </p>
                 </div>
               </div>
@@ -359,7 +429,10 @@ const MedicalHistoryOnboarding: React.FC = () => {
               <Card key={question.id} className="bg-white border-0 shadow-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-lg">{question.text}</h4>
+                    <h4 className="font-medium text-lg">
+                      {question.text}
+                      <span className="text-red-500 ml-1">*</span>
+                    </h4>
                     <span className="flex items-center">
                       <Edit size={16} className="text-gray-400 mr-1" />
                       <span className="text-sm text-gray-500">Review needed</span>
