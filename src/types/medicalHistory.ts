@@ -7,6 +7,7 @@ export interface Question {
   answerType: string;
   description?: string;
   source?: string | null;
+  [key: string]: any; // Add index signature to make it compatible with Json type
 }
 
 export interface MedicalHistoryForm {

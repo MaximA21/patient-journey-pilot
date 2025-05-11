@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -123,11 +122,14 @@ const MedicalHistoryOnboarding: React.FC = () => {
         }
       });
       
+      // Save updated questions to database - convert to plain objects for supabase compatibility
+      const plainQuestions = updatedQuestions.map(q => ({ ...q }));
+      
       // Save updated questions to database
       const { error } = await supabase
         .from('medical_history_form')
         .update({
-          questions: updatedQuestions
+          questions: plainQuestions
         })
         .eq('id', medicalHistoryForm.id);
       
