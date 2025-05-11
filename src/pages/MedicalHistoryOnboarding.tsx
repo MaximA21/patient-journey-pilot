@@ -149,42 +149,16 @@ const MedicalHistoryOnboarding: React.FC = () => {
   
   // Modified to only validate fields that have been touched/filled
   const validateForm = (): boolean => {
-    const errors: Record<string, boolean> = {};
-    let isValid = true;
-    
-    // Only validate answers that the user has attempted to provide
-    Object.keys(userAnswers).forEach(questionId => {
-      const answer = userAnswers[questionId];
-      const question = questionsToReview.find(q => q.id === questionId);
-      
-      if (!question) return;
-      
-      // For text/string inputs that user has interacted with, check if empty or only whitespace
-      if ((question.answerType === 'string' || question.answerType === 'text') && 
-          (answer === undefined || answer === null || answer.trim() === '')) {
-        errors[questionId] = true;
-        isValid = false;
-      }
-    });
-    
-    setValidationErrors(errors);
-    
-    if (!isValid) {
-      toast.error("Please complete all fields you've started");
-    }
-    
-    return isValid;
+    // When saving partial answers, we don't need to validate anything
+    // Just return true to allow saving whatever has been entered
+    return true;
   };
   
   const handleSaveAnswers = async () => {
     try {
       if (!medicalHistoryForm || !formIdParam) return;
       
-      // Validate only the fields the user has interacted with
-      if (!validateForm()) {
-        return;
-      }
-      
+      // No validation required for partial answers
       setIsSaving(true);
       
       const formId = Number(formIdParam);
@@ -196,6 +170,12 @@ const MedicalHistoryOnboarding: React.FC = () => {
       const updatedQuestions = [...medicalHistoryForm.questions];
       
       Object.entries(userAnswers).forEach(([questionId, answer]) => {
+        // Skip empty answers - we're allowing partial completion
+        if ((typeof answer === 'string' && answer.trim() === '') || answer === null) {
+          console.log(`Skipping empty answer for question ${questionId}`);
+          return;
+        }
+        
         const questionIndex = updatedQuestions.findIndex(q => q.id === questionId);
         if (questionIndex !== -1) {
           updatedQuestions[questionIndex] = {
