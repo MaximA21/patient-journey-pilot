@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AccessibilityMode from "./pages/AccessibilityMode";
 import AccessibilityCamera from "./pages/AccessibilityCamera";
+import MedicalHistoryOnboarding from "./pages/MedicalHistoryOnboarding";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/new-patient" element={<ProtectedRoute><NewPatient /></ProtectedRoute>} />
               <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
               <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
+              <Route path="/medical-history/:id" element={<ProtectedRoute><MedicalHistoryOnboarding /></ProtectedRoute>} />
               <Route path="/accessibility-mode" element={<ProtectedRoute><AccessibilityMode /></ProtectedRoute>} />
               <Route path="/accessibility-camera" element={<ProtectedRoute><AccessibilityCamera /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />

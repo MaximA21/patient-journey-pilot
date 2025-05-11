@@ -1,10 +1,11 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { useAppContext } from "@/context/AppContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Phone, Mail, MapPin, Calendar, Heart, FileText } from "lucide-react";
+import { User, Phone, Mail, MapPin, Calendar, Heart, FileText, ClipboardList, AlertTriangle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { toast } from "sonner";
@@ -27,12 +28,24 @@ interface Patient {
   insurance_number: number;
 }
 
+interface Question {
+  id: string;
+  text: string;
+  answer: string | null;
+  confidence: number;
+  answerType: string;
+}
+
 const PatientDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { mode } = useAppContext();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [medicalHistoryNeeded, setMedicalHistoryNeeded] = useState(false);
+  const [medicalHistoryQuestions, setMedicalHistoryQuestions] = useState<Question[]>([]);
   const navigate = useNavigate();
+
+  const CONFIDENCE_THRESHOLD = 0.7; // Questions below this confidence need review
 
   useEffect(() => {
     async function fetchPatientDetails() {
@@ -47,6 +60,9 @@ const PatientDetail: React.FC = () => {
 
         if (error) throw error;
         setPatient(data);
+
+        // Fetch medical history information
+        await fetchMedicalHistory();
       } catch (error) {
         console.error("Error fetching patient details:", error);
         toast.error("Error fetching patient details");
@@ -57,6 +73,32 @@ const PatientDetail: React.FC = () => {
 
     fetchPatientDetails();
   }, [id]);
+
+  const fetchMedicalHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('medical_history_form')
+        .select('*')
+        .single();
+      
+      if (error) {
+        console.error("Error fetching medical history form:", error);
+        return;
+      }
+      
+      if (data && data.questions && Array.isArray(data.questions)) {
+        // Check if there are questions that need review
+        const questionsNeedingReview = data.questions.filter((q: Question) => 
+          q.answer === null || q.confidence < CONFIDENCE_THRESHOLD
+        );
+        
+        setMedicalHistoryQuestions(data.questions);
+        setMedicalHistoryNeeded(questionsNeedingReview.length > 0);
+      }
+    } catch (error) {
+      console.error("Error checking medical history:", error);
+    }
+  };
 
   const getGenderLabel = (gender: number) => {
     const genders = ["Female", "Male", "Non-binary", "Other"];
@@ -112,6 +154,26 @@ const PatientDetail: React.FC = () => {
               Upload Documents
             </Button>
           </div>
+          
+          {medicalHistoryNeeded && (
+            <Card className="bg-amber-50 border border-amber-200 mb-6">
+              <CardContent className="p-4 flex justify-between items-center">
+                <div className="flex items-center">
+                  <AlertTriangle size={20} className="text-amber-500 mr-3" />
+                  <div>
+                    <h3 className="font-medium text-uber-gray-900">Medical history needs review</h3>
+                    <p className="text-sm text-uber-gray-700">Some information is missing or has low confidence</p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => navigate(`/medical-history/${id}`)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  Complete History <ChevronRight size={16} className="ml-1" />
+                </Button>
+              </CardContent>
+            </Card>
+          )}
           
           <div className="space-y-5">
             {/* Personal Information */}
@@ -213,6 +275,51 @@ const PatientDetail: React.FC = () => {
                         <p className="font-medium">{patient.insurance_number}</p>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Medical History */}
+            <Card className="bg-white border-0 shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-3 mb-4">
+                  <ClipboardList size={20} className="text-uber-gray-600 mt-1" />
+                  <div className="w-full">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-medium text-lg">Medical History</h3>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/medical-history/${id}`)}
+                        className="text-sm"
+                      >
+                        {medicalHistoryNeeded ? "Complete" : "View/Edit"}
+                      </Button>
+                    </div>
+                    {medicalHistoryQuestions.length > 0 ? (
+                      <div className="mt-3 space-y-3">
+                        {medicalHistoryQuestions
+                          .filter(q => q.answer !== null && q.confidence >= CONFIDENCE_THRESHOLD)
+                          .slice(0, 3)
+                          .map(question => (
+                            <div key={question.id} className="border-b border-gray-100 pb-2">
+                              <p className="text-sm text-uber-gray-500">{question.text}</p>
+                              <p className="font-medium">{question.answer}</p>
+                            </div>
+                          ))}
+                        {medicalHistoryNeeded && (
+                          <div className="text-amber-600 text-sm mt-2 flex items-center">
+                            <AlertTriangle size={14} className="mr-1" />
+                            Some information needs review
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-uber-gray-500 mt-2">
+                        No medical history information available yet.
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>

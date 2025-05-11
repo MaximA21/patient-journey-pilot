@@ -145,9 +145,9 @@ const DocumentUpload: React.FC = () => {
       toast.success("Documents uploaded successfully!");
       setProcessingComplete(true);
       
-      // Navigate after a delay to allow user to see the success message
+      // Navigate to the medical history onboarding after a delay
       setTimeout(() => {
-        navigate(`/patients/${FIXED_PATIENT_ID}`);
+        navigate(`/medical-history/${FIXED_PATIENT_ID}`);
       }, 2000);
       
     } catch (error) {
