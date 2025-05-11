@@ -37,11 +37,11 @@ const MedicalHistoryOnboarding: React.FC = () => {
       setIsLoading(true);
       setError(null);
       
-      // Fetch the medical history form
+      // Change from .single() to .limit(1) to avoid the error when multiple records exist
       const { data: formData, error: formError } = await supabase
         .from('medical_history_form')
         .select('*')
-        .single();
+        .limit(1);
       
       if (formError) {
         console.error("Error fetching medical history form:", formError);
@@ -49,52 +49,16 @@ const MedicalHistoryOnboarding: React.FC = () => {
         throw new Error(`Failed to fetch medical history form: ${formError.message}`);
       }
       
-      if (!formData) {
-        toast.error("Medical history form not found");
-        setError("Medical history form not found");
-        navigate(`/patients/${patientId}`);
-        return;
+      // Check if we have any data at all
+      if (!formData || formData.length === 0) {
+        console.log("No medical history form found, creating a new one");
+        const newForm = await createMedicalHistoryForm();
+        processFormData(newForm);
+      } else {
+        console.log("Raw form data from database:", formData[0]);
+        processFormData(formData[0]);
       }
       
-      console.log("Raw form data from database:", formData);
-      
-      // Initialize the medical history form with proper typing
-      const form: MedicalHistoryForm = {
-        id: formData.id,
-        name: formData.name || "Medical History",
-        questions: Array.isArray(formData.questions) 
-          ? formData.questions.map((q: any) => ({
-              id: q.id || String(Math.random()),
-              text: q.text || "Unknown question",
-              answer: q.answer,
-              confidence: typeof q.confidence === 'number' ? q.confidence : 0,
-              answerType: q.answerType || "string",
-              description: q.description,
-              source: q.source
-            }))
-          : []
-      };
-      
-      console.log("Processed medical history form:", form);
-      console.log("Total questions:", form.questions.length);
-      
-      // Filter questions that need review (null answers or low confidence)
-      const toReview = form.questions.filter(q => 
-        q.answer === null || 
-        q.confidence < CONFIDENCE_THRESHOLD
-      );
-      
-      console.log(`Questions that need review: ${toReview.length}`, toReview);
-      
-      // Initialize user answers with existing answers
-      const initialAnswers: Record<string, any> = {};
-      toReview.forEach(q => {
-        initialAnswers[q.id] = q.answer !== null ? q.answer : "";
-      });
-      
-      setMedicalHistoryForm(form);
-      setQuestionsToReview(toReview);
-      setUserAnswers(initialAnswers);
     } catch (error) {
       console.error("Error fetching medical history:", error);
       setError("Failed to load medical history");
@@ -102,6 +66,84 @@ const MedicalHistoryOnboarding: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  // Helper function to create a new medical history form
+  const createMedicalHistoryForm = async () => {
+    console.log("Creating a new medical history form");
+    
+    // Template questions with types that match database expectations
+    const templateQuestions = [
+      { id: "allergies", text: "Do you have any allergies?", answer: null, confidence: 0, answerType: "string", description: "List specific allergies (medications, foods, etc.) if any" },
+      { id: "medications", text: "What medications are you currently taking?", answer: null, confidence: 0, answerType: "string", description: "List all current medications with dosages if possible" },
+      { id: "surgeries", text: "Have you had any surgeries?", answer: null, confidence: 0, answerType: "string", description: "List previous surgeries with dates if available" },
+      { id: "chronic_conditions", text: "Do you have any chronic medical conditions?", answer: null, confidence: 0, answerType: "string", description: "List diagnosed chronic conditions like diabetes, hypertension, etc." },
+      { id: "family_history", text: "Do you have any significant family medical history?", answer: null, confidence: 0, answerType: "string", description: "List relevant family medical conditions, especially hereditary ones" },
+      { id: "vaccinations", text: "What vaccinations have you received?", answer: null, confidence: 0, answerType: "string", description: "List specific vaccinations and dates if available" }
+    ];
+    
+    try {
+      const { data: newForm, error: createError } = await supabase
+        .from('medical_history_form')
+        .insert({
+          name: 'Patient Medical History',
+          questions: templateQuestions
+        })
+        .select()
+        .single();
+      
+      if (createError) {
+        console.error('Error creating medical history form:', createError);
+        throw new Error(`Failed to create medical history form: ${createError.message}`);
+      }
+      
+      console.log('Successfully created new medical history form with template questions', newForm);
+      return newForm;
+    } catch (error) {
+      console.error("Error creating medical history form:", error);
+      throw error;
+    }
+  };
+  
+  // Process form data and set up the component state
+  const processFormData = (formData: any) => {
+    // Initialize the medical history form with proper typing
+    const form: MedicalHistoryForm = {
+      id: formData.id,
+      name: formData.name || "Medical History",
+      questions: Array.isArray(formData.questions) 
+        ? formData.questions.map((q: any) => ({
+            id: q.id || String(Math.random()),
+            text: q.text || "Unknown question",
+            answer: q.answer,
+            confidence: typeof q.confidence === 'number' ? q.confidence : 0,
+            answerType: q.answerType || "string",
+            description: q.description,
+            source: q.source
+          }))
+        : []
+    };
+    
+    console.log("Processed medical history form:", form);
+    console.log("Total questions:", form.questions.length);
+    
+    // Filter questions that need review (null answers or low confidence)
+    const toReview = form.questions.filter(q => 
+      q.answer === null || 
+      q.confidence < CONFIDENCE_THRESHOLD
+    );
+    
+    console.log(`Questions that need review: ${toReview.length}`, toReview);
+    
+    // Initialize user answers with existing answers
+    const initialAnswers: Record<string, any> = {};
+    toReview.forEach(q => {
+      initialAnswers[q.id] = q.answer !== null ? q.answer : "";
+    });
+    
+    setMedicalHistoryForm(form);
+    setQuestionsToReview(toReview);
+    setUserAnswers(initialAnswers);
   };
   
   const handleAnswerChange = (questionId: string, value: any) => {
@@ -132,16 +174,26 @@ const MedicalHistoryOnboarding: React.FC = () => {
         }
       });
       
-      // Save updated questions to database - convert to plain objects for supabase compatibility
-      const plainQuestions = updatedQuestions.map(q => ({ ...q }));
+      // Convert questions to a format compatible with the database's JSON field
+      const databaseQuestions = updatedQuestions.map(q => ({
+        ...q,
+        // Ensure all properties have appropriate types for JSON storage
+        id: q.id,
+        text: q.text,
+        answer: q.answer,
+        confidence: q.confidence,
+        answerType: q.answerType,
+        description: q.description || null,
+        source: q.source || null
+      }));
       
-      console.log("Saving updated questions:", plainQuestions);
+      console.log("Saving updated questions:", databaseQuestions);
       
       // Save updated questions to database
       const { error } = await supabase
         .from('medical_history_form')
         .update({
-          questions: plainQuestions
+          questions: databaseQuestions
         })
         .eq('id', medicalHistoryForm.id);
       

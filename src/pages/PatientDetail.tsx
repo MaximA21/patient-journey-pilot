@@ -68,21 +68,31 @@ const PatientDetail: React.FC = () => {
 
   const fetchMedicalHistory = async () => {
     try {
+      // Changed from .single() to .limit(1) to avoid errors when multiple records exist
       const { data, error } = await supabase
         .from('medical_history_form')
         .select('*')
-        .single();
+        .limit(1);
       
       if (error) {
         console.error("Error fetching medical history form:", error);
         return;
       }
       
-      console.log("Medical history form raw data:", data);
+      // Check if we found any data
+      if (!data || data.length === 0) {
+        console.log("No medical history form found");
+        setMedicalHistoryQuestions([]);
+        setMedicalHistoryNeeded(true); // If no form exists, we definitely need to create one
+        return;
+      }
       
-      if (data && data.questions && Array.isArray(data.questions)) {
+      const formData = data[0];
+      console.log("Medical history form raw data:", formData);
+      
+      if (formData && formData.questions && Array.isArray(formData.questions)) {
         // Map the questions from JSON to our Question type
-        const typedQuestions: Question[] = data.questions.map((q: any) => ({
+        const typedQuestions: Question[] = formData.questions.map((q: any) => ({
           id: q.id || String(Math.random()),
           text: q.text || "Unknown question",
           answer: q.answer,
@@ -105,10 +115,12 @@ const PatientDetail: React.FC = () => {
         setMedicalHistoryQuestions(typedQuestions);
         setMedicalHistoryNeeded(questionsNeedingReview.length > 0);
       } else {
-        console.warn("Medical history data is not in expected format:", data);
+        console.warn("Medical history data is not in expected format:", formData);
+        setMedicalHistoryNeeded(true); // If data format is incorrect, we need to fix it
       }
     } catch (error) {
       console.error("Error checking medical history:", error);
+      setMedicalHistoryNeeded(true); // If error occurred, we need to review the medical history
     }
   };
 
