@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { Question } from "@/types/medicalHistory";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const CONFIDENCE_THRESHOLD = 0.7; // Questions below this confidence need review
 
@@ -142,6 +143,25 @@ const PatientDetail: React.FC = () => {
       // The medical history page will show an appropriate message
       navigate(`/medical-history/${id}`);
     }
+  };
+
+  const getSourceLabel = (source: string | null) => {
+    if (!source) return "Not specified";
+    if (source.toLowerCase().includes("ai") || source.toLowerCase().includes("openai")) {
+      return "AI Generated";
+    }
+    if (source.toLowerCase().includes("user")) {
+      return "User Input";
+    }
+    return source;
+  };
+
+  const getConfidenceLabel = (confidence: number) => {
+    if (confidence >= 0.9) return "Very High";
+    if (confidence >= 0.7) return "High";
+    if (confidence >= 0.5) return "Medium";
+    if (confidence > 0) return "Low";
+    return "None";
   };
 
   if (isLoading) {
@@ -336,21 +356,44 @@ const PatientDetail: React.FC = () => {
                         {medicalHistoryNeeded ? "Complete" : "View/Edit"}
                       </Button>
                     </div>
+                    
                     {medicalHistoryQuestions.length > 0 ? (
-                      <div className="mt-3 space-y-3">
-                        {medicalHistoryQuestions
-                          .filter(q => q.answer !== null && q.confidence >= CONFIDENCE_THRESHOLD)
-                          .slice(0, 3)
-                          .map(question => (
-                            <div key={question.id} className="border-b border-gray-100 pb-2">
-                              <p className="text-sm text-uber-gray-500">{question.text}</p>
-                              <p className="font-medium">{String(question.answer)}</p>
-                            </div>
-                          ))}
+                      <div className="mt-3">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Question</TableHead>
+                              <TableHead>Answer</TableHead>
+                              <TableHead>Source</TableHead>
+                              <TableHead>Confidence</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {medicalHistoryQuestions.map(question => (
+                              <TableRow key={question.id} className={question.confidence < CONFIDENCE_THRESHOLD ? "bg-amber-50" : ""}>
+                                <TableCell>{question.text}</TableCell>
+                                <TableCell>{question.answer !== null ? String(question.answer) : "No answer"}</TableCell>
+                                <TableCell>{getSourceLabel(question.source)}</TableCell>
+                                <TableCell>
+                                  {question.confidence > 0 && (
+                                    <span className={`px-2 py-1 rounded-full text-xs ${
+                                      question.confidence >= CONFIDENCE_THRESHOLD 
+                                        ? "bg-green-100 text-green-800" 
+                                        : "bg-amber-100 text-amber-800"
+                                    }`}>
+                                      {getConfidenceLabel(question.confidence)}
+                                    </span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        
                         {medicalHistoryNeeded && (
-                          <div className="text-amber-600 text-sm mt-2 flex items-center">
+                          <div className="text-amber-600 text-sm mt-4 flex items-center">
                             <AlertTriangle size={14} className="mr-1" />
-                            Some information needs review
+                            Some information needs review - click "Complete" to address items with low confidence
                           </div>
                         )}
                       </div>
