@@ -145,21 +145,25 @@ const DocumentUpload: React.FC = () => {
         
         // Check if a form ID was returned from the analysis
         if (analysisResult && analysisResult.formId) {
+          console.log("Received form ID from complete-uploads:", analysisResult.formId);
           setCreatedFormId(analysisResult.formId);
+          
+          // Navigate to the medical history onboarding with the new form ID
+          setTimeout(() => {
+            if (analysisResult.formId) {
+              navigate(`/medical-history/${FIXED_PATIENT_ID}?formId=${analysisResult.formId}`);
+            } else {
+              navigate(`/medical-history/${FIXED_PATIENT_ID}`);
+            }
+          }, 2000);
+        } else {
+          console.error("No form ID returned from complete-uploads");
+          toast.error("Failed to create medical history form. Please try again.");
         }
       }
       
       toast.success("Documents uploaded successfully!");
       setProcessingComplete(true);
-      
-      // Navigate to the medical history onboarding after a delay, using the new form ID if available
-      setTimeout(() => {
-        if (createdFormId) {
-          navigate(`/medical-history/${FIXED_PATIENT_ID}?formId=${createdFormId}`);
-        } else {
-          navigate(`/medical-history/${FIXED_PATIENT_ID}`);
-        }
-      }, 2000);
       
     } catch (error) {
       console.error("Error uploading documents:", error);
@@ -247,6 +251,7 @@ const DocumentUpload: React.FC = () => {
       });
       
       if (error) {
+        console.error("Error invoking complete-uploads:", error);
         throw error;
       }
       
@@ -257,7 +262,11 @@ const DocumentUpload: React.FC = () => {
         
         // If a form was created, save its ID
         if (data.formId) {
+          console.log("Setting form ID:", data.formId);
           setCreatedFormId(data.formId);
+          return data;
+        } else {
+          console.error("No form ID in successful response");
         }
       } else if (data.message === "Some documents still processing") {
         // Some documents are still processing
@@ -265,7 +274,10 @@ const DocumentUpload: React.FC = () => {
         
         // Set the form ID if it was returned
         if (data.formId) {
+          console.log("Setting form ID from partial processing:", data.formId);
           setCreatedFormId(data.formId);
+        } else {
+          console.error("No form ID in partial processing response");
         }
         
         // Set up a retry after a delay
@@ -274,6 +286,7 @@ const DocumentUpload: React.FC = () => {
         }, 5000); // 5 seconds
       } else {
         toast.error("Document analysis failed");
+        console.error("Document analysis failed:", data.error || "Unknown error");
       }
       
       return data;

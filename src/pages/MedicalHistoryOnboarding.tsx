@@ -15,7 +15,6 @@ import { useAppContext } from "@/context/AppContext";
 import { Question, MedicalHistoryForm } from "@/types/medicalHistory";
 
 const CONFIDENCE_THRESHOLD = 0.7; // Questions below this confidence need review
-const FORM_NAME = "bogen1";
 
 const MedicalHistoryOnboarding: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
@@ -26,7 +25,6 @@ const MedicalHistoryOnboarding: React.FC = () => {
   // Get the formId from URL query parameters
   const queryParams = new URLSearchParams(location.search);
   const formIdParam = queryParams.get('formId');
-  const formId = formIdParam ? parseInt(formIdParam) : null;
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -37,16 +35,24 @@ const MedicalHistoryOnboarding: React.FC = () => {
   
   useEffect(() => {
     fetchMedicalHistoryForm();
-  }, [patientId, formId]);
+  }, [patientId, formIdParam]);
   
   const fetchMedicalHistoryForm = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      if (!formId) {
-        console.error("No form ID provided");
+      if (!formIdParam) {
+        console.error("No form ID provided in URL");
         setError("No form ID provided. Please upload documents first.");
+        setIsLoading(false);
+        return;
+      }
+      
+      const formId = Number(formIdParam);
+      if (isNaN(formId)) {
+        console.error("Invalid form ID format:", formIdParam);
+        setError(`Invalid form ID format: ${formIdParam}`);
         setIsLoading(false);
         return;
       }
@@ -90,7 +96,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
     // Initialize the medical history form with proper typing
     const form: MedicalHistoryForm = {
       id: formData.id,
-      name: formData.name || FORM_NAME,
+      name: formData.name || "Medical History Form",
       questions: Array.isArray(formData.questions) 
         ? formData.questions.map((q: any) => ({
             id: q.id || String(Math.random()),
@@ -135,9 +141,14 @@ const MedicalHistoryOnboarding: React.FC = () => {
   
   const handleSaveAnswers = async () => {
     try {
-      if (!medicalHistoryForm || !formId) return;
+      if (!medicalHistoryForm || !formIdParam) return;
       
       setIsSaving(true);
+      
+      const formId = Number(formIdParam);
+      if (isNaN(formId)) {
+        throw new Error(`Invalid form ID: ${formIdParam}`);
+      }
       
       // Update questions with user answers
       const updatedQuestions = [...medicalHistoryForm.questions];

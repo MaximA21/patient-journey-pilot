@@ -180,20 +180,29 @@ serve(async (req) => {
     console.log("Creating new medical history form with default questions");
     const formName = `Form-${new Date().toISOString()}`;
     
-    const { data: newForm, error: formError } = await supabase
-      .from('medical_history_form')
-      .insert({
-        name: formName,
-        questions: DEFAULT_QUESTIONS
-      })
-      .select('id')
-      .single();
-    
-    if (formError) {
-      console.error('Error creating medical history form:', formError);
+    let formId: number | null = null;
+    try {
+      const { data: newForm, error: formError } = await supabase
+        .from('medical_history_form')
+        .insert({
+          name: formName,
+          questions: DEFAULT_QUESTIONS
+        })
+        .select('id')
+        .single();
+      
+      if (formError) {
+        console.error('Error creating medical history form:', formError);
+        // Continue processing even if form creation fails
+      } else if (newForm) {
+        console.log(`Successfully created medical history form with ID: ${newForm.id}`);
+        formId = newForm.id;
+      } else {
+        console.error('No form data returned after insert');
+      }
+    } catch (formCreateError) {
+      console.error('Exception creating medical history form:', formCreateError);
       // Continue processing even if form creation fails
-    } else {
-      console.log(`Successfully created medical history form with ID: ${newForm.id}`);
     }
     
     // Check if all uploads have been processed
@@ -211,51 +220,88 @@ serve(async (req) => {
           unprocessedCount: unprocessedDocuments.length,
           unprocessedIds: unprocessedDocuments.map(doc => doc.id),
           processedCount: (documents?.length || 0) - unprocessedDocuments.length,
-          formId: newForm?.id // Include the newly created form ID
+          formId: formId // Include the newly created form ID
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    // All uploads are processed, trigger the analysis
+    // All uploads are processed, trigger the analysis if we have a valid form ID
+    if (formId === null) {
+      console.error('No valid form ID created, skipping document analysis');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Failed to create medical history form',
+          error: 'No valid form ID created'
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     console.log('All documents processed, triggering analysis');
     
     // Call the document analysis function using fetch directly to the URL
     const analysisUrl = `${supabaseUrl}/functions/v1/analyze-patient-documents`;
     console.log(`Calling analysis function at: ${analysisUrl}`);
     
-    const analysisResponse = await fetch(analysisUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${supabaseServiceKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ 
-        patientId: usePatientId,
-        documentIds,
-        formId: newForm?.id // Pass the newly created form ID to the analysis function
-      })
-    });
-    
-    if (!analysisResponse.ok) {
-      const errorText = await analysisResponse.text();
-      console.error('Analysis function error status:', analysisResponse.status);
-      console.error('Analysis function error:', errorText);
-      throw new Error(`Failed to trigger analysis: ${analysisResponse.status} ${errorText}`);
+    try {
+      const analysisResponse = await fetch(analysisUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          patientId: usePatientId,
+          documentIds,
+          formId: formId // Pass the newly created form ID to the analysis function
+        })
+      });
+      
+      if (!analysisResponse.ok) {
+        const errorText = await analysisResponse.text();
+        console.error('Analysis function error status:', analysisResponse.status);
+        console.error('Analysis function error:', errorText);
+        
+        // Return success with form ID even if analysis fails
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Documents processed but analysis failed',
+            error: `Analysis error: ${analysisResponse.status} ${errorText}`,
+            formId: formId // Still return the form ID
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      const analysisResult = await analysisResponse.json();
+      console.log("Analysis result:", analysisResult);
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'All uploads processed and analysis completed',
+          analysisResult,
+          formId: formId // Include the newly created form ID
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (analysisError) {
+      console.error('Error calling analysis function:', analysisError);
+      
+      // Return success with form ID even if analysis fails
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Documents processed but analysis failed',
+          error: String(analysisError),
+          formId: formId // Still return the form ID
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-    
-    const analysisResult = await analysisResponse.json();
-    console.log("Analysis result:", analysisResult);
-    
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'All uploads processed and analysis completed',
-        analysisResult,
-        formId: newForm?.id // Include the newly created form ID
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
     
   } catch (error) {
     console.error('Error processing completed uploads:', error);

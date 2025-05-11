@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -10,8 +11,6 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { Question } from "@/types/medicalHistory";
 
-// The specific form ID we want to use - updated to numeric 1
-const SPECIFIC_FORM_ID = 1;
 const CONFIDENCE_THRESHOLD = 0.7; // Questions below this confidence need review
 
 interface Patient {
@@ -39,6 +38,7 @@ const PatientDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [medicalHistoryNeeded, setMedicalHistoryNeeded] = useState(false);
   const [medicalHistoryQuestions, setMedicalHistoryQuestions] = useState<Question[]>([]);
+  const [latestFormId, setLatestFormId] = useState<number | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -70,25 +70,34 @@ const PatientDetail: React.FC = () => {
 
   const fetchMedicalHistory = async () => {
     try {
-      console.log(`Fetching medical history form with id: ${SPECIFIC_FORM_ID}`);
-      
-      // Use maybeSingle() instead of single() to prevent errors when no row is found
+      // Get the most recent medical history form for this patient
       const { data, error } = await supabase
         .from('medical_history_form')
         .select('*')
-        .eq('id', SPECIFIC_FORM_ID)
-        .maybeSingle();
+        .order('id', { ascending: false })
+        .limit(1);
       
       if (error) {
-        console.error("Error fetching specific medical history form:", error);
+        console.error("Error fetching medical history forms:", error);
         return;
       }
       
-      console.log("Medical history form raw data:", data);
+      if (!data || data.length === 0) {
+        console.log("No medical history forms found");
+        setMedicalHistoryNeeded(true);
+        return;
+      }
       
-      if (data && data.questions && Array.isArray(data.questions)) {
+      const latestForm = data[0];
+      console.log("Latest medical history form:", latestForm);
+      
+      if (latestForm && latestForm.id) {
+        setLatestFormId(latestForm.id);
+      }
+      
+      if (latestForm && latestForm.questions && Array.isArray(latestForm.questions)) {
         // Map the questions from JSON to our Question type
-        const typedQuestions: Question[] = data.questions.map((q: any) => ({
+        const typedQuestions: Question[] = latestForm.questions.map((q: any) => ({
           id: q.id || String(Math.random()),
           text: q.text || "Unknown question",
           answer: q.answer,
@@ -111,7 +120,7 @@ const PatientDetail: React.FC = () => {
         setMedicalHistoryQuestions(typedQuestions);
         setMedicalHistoryNeeded(questionsNeedingReview.length > 0);
       } else {
-        console.warn("Medical history data is not in expected format:", data);
+        console.warn("Medical history data is not in expected format:", latestForm);
         setMedicalHistoryNeeded(true); // If data format is incorrect, we need to fix it
       }
     } catch (error) {
@@ -123,6 +132,16 @@ const PatientDetail: React.FC = () => {
   const getGenderLabel = (gender: number) => {
     const genders = ["Female", "Male", "Non-binary", "Other"];
     return genders[gender] || "Not specified";
+  };
+
+  const navigateToMedicalHistory = () => {
+    if (latestFormId) {
+      navigate(`/medical-history/${id}?formId=${latestFormId}`);
+    } else {
+      // If no form ID is available, navigate without it
+      // The medical history page will show an appropriate message
+      navigate(`/medical-history/${id}`);
+    }
   };
 
   if (isLoading) {
@@ -186,7 +205,7 @@ const PatientDetail: React.FC = () => {
                   </div>
                 </div>
                 <Button 
-                  onClick={() => navigate(`/medical-history/${id}`)}
+                  onClick={navigateToMedicalHistory}
                   className="bg-amber-600 hover:bg-amber-700 text-white"
                 >
                   Complete History <ChevronRight size={16} className="ml-1" />
@@ -311,7 +330,7 @@ const PatientDetail: React.FC = () => {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => navigate(`/medical-history/${id}`)}
+                        onClick={navigateToMedicalHistory}
                         className="text-sm"
                       >
                         {medicalHistoryNeeded ? "Complete" : "View/Edit"}
