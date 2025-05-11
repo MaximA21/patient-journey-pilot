@@ -1,7 +1,7 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { DEFAULT_QUESTIONS } from "../../../src/types/medicalHistory.ts";
 
 // Configuration and constants
 const corsHeaders = {
@@ -82,15 +82,8 @@ async function fetchPatientDocuments(patientId: string, documentIds?: number[]) 
 async function createMedicalHistoryForm() {
   console.log('Creating a new medical history form');
 
-  // Create a template with common medical history questions and their expected answer types
-  const templateQuestions = [
-    { id: "allergies", text: "Do you have any allergies?", answer: null, confidence: 0, answerType: "string", description: "List specific allergies (medications, foods, etc.) if any" },
-    { id: "medications", text: "What medications are you currently taking?", answer: null, confidence: 0, answerType: "string", description: "List all current medications with dosages if possible" },
-    { id: "surgeries", text: "Have you had any surgeries?", answer: null, confidence: 0, answerType: "string", description: "List previous surgeries with dates if available" },
-    { id: "chronic_conditions", text: "Do you have any chronic medical conditions?", answer: null, confidence: 0, answerType: "string", description: "List diagnosed chronic conditions like diabetes, hypertension, etc." },
-    { id: "family_history", text: "Do you have any significant family medical history?", answer: null, confidence: 0, answerType: "string", description: "List relevant family medical conditions, especially hereditary ones" },
-    { id: "vaccinations", text: "What vaccinations have you received??", answer: null, confidence: 0, answerType: "string", description: "List specific vaccinations and dates if available" }
-  ];
+  // Use the updated DEFAULT_QUESTIONS constant from the imported module
+  const templateQuestions = DEFAULT_QUESTIONS;
 
   const { data: newForm, error: createError } = await supabase
     .from('medical_history_form')
@@ -138,15 +131,8 @@ async function fetchMedicalHistoryForm() {
     if (!medicalHistoryForm.questions || !Array.isArray(medicalHistoryForm.questions)) {
       console.log('Medical history form has no questions array, initializing with template questions');
       
-      // Create template questions with answer types
-      medicalHistoryForm.questions = [
-        { id: "allergies", text: "Do you have any allergies?", answer: null, confidence: 0, answerType: "string", description: "List specific allergies (medications, foods, etc.) if any" },
-        { id: "medications", text: "What medications are you currently taking?", answer: null, confidence: 0, answerType: "string", description: "List all current medications with dosages if possible" },
-        { id: "surgeries", text: "Have you had any surgeries?", answer: null, confidence: 0, answerType: "string", description: "List previous surgeries with dates if available" },
-        { id: "chronic_conditions", text: "Do you have any chronic medical conditions?", answer: null, confidence: 0, answerType: "string", description: "List diagnosed chronic conditions like diabetes, hypertension, etc." },
-        { id: "family_history", text: "Do you have any significant family medical history?", answer: null, confidence: 0, answerType: "string", description: "List relevant family medical conditions, especially hereditary ones" },
-        { id: "vaccinations", text: "What vaccinations have you received?", answer: null, confidence: 0, answerType: "string", description: "List specific vaccinations and dates if available" }
-      ];
+      // Use the updated DEFAULT_QUESTIONS constant
+      medicalHistoryForm.questions = DEFAULT_QUESTIONS;
       
       // Update the form with the template questions
       const { error: updateError } = await supabase
@@ -413,14 +399,7 @@ async function updateMedicalHistoryForm(medicalHistoryForm, answersJson) {
   // If questions is empty or not an array after all attempts, initialize with default questions
   if (!Array.isArray(medicalHistoryForm.questions) || medicalHistoryForm.questions.length === 0) {
     console.log('Initializing questions with default template');
-    medicalHistoryForm.questions = [
-      { id: "allergies", text: "Do you have any allergies?", answer: null, confidence: 0, answerType: "string", description: "List specific allergies (medications, foods, etc.) if any" },
-      { id: "medications", text: "What medications are you currently taking?", answer: null, confidence: 0, answerType: "string", description: "List all current medications with dosages if possible" },
-      { id: "surgeries", text: "Have you had any surgeries?", answer: null, confidence: 0, answerType: "string", description: "List previous surgeries with dates if available" },
-      { id: "chronic_conditions", text: "Do you have any chronic medical conditions?", answer: null, confidence: 0, answerType: "string", description: "List diagnosed chronic conditions like diabetes, hypertension, etc." },
-      { id: "family_history", text: "Do you have any significant family medical history?", answer: null, confidence: 0, answerType: "string", description: "List relevant family medical conditions, especially hereditary ones" },
-      { id: "vaccinations", text: "What vaccinations have you received?", answer: null, confidence: 0, answerType: "string", description: "List specific vaccinations and dates if available" }
-    ];
+    medicalHistoryForm.questions = DEFAULT_QUESTIONS;
   }
 
   // Update existing questions or add new ones from answers
