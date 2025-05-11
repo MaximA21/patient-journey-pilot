@@ -147,25 +147,22 @@ const MedicalHistoryOnboarding: React.FC = () => {
     }
   };
   
+  // Modified to only validate fields that have been touched/filled
   const validateForm = (): boolean => {
     const errors: Record<string, boolean> = {};
     let isValid = true;
     
-    // Check each question that needs review
-    questionsToReview.forEach(question => {
-      const answer = userAnswers[question.id];
+    // Only validate answers that the user has attempted to provide
+    Object.keys(userAnswers).forEach(questionId => {
+      const answer = userAnswers[questionId];
+      const question = questionsToReview.find(q => q.id === questionId);
       
-      // For text/string inputs, check if empty or only whitespace
-      if (question.answerType === 'string' || question.answerType === 'text') {
-        if (answer === undefined || answer === null || answer.trim() === '') {
-          errors[question.id] = true;
-          isValid = false;
-        }
-      }
+      if (!question) return;
       
-      // For boolean inputs, make sure they're explicitly set (not just default)
-      if (question.answerType === 'boolean' && answer === undefined) {
-        errors[question.id] = true;
+      // For text/string inputs that user has interacted with, check if empty or only whitespace
+      if ((question.answerType === 'string' || question.answerType === 'text') && 
+          (answer === undefined || answer === null || answer.trim() === '')) {
+        errors[questionId] = true;
         isValid = false;
       }
     });
@@ -173,7 +170,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
     setValidationErrors(errors);
     
     if (!isValid) {
-      toast.error("Please answer all questions before saving");
+      toast.error("Please complete all fields you've started");
     }
     
     return isValid;
@@ -183,7 +180,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
     try {
       if (!medicalHistoryForm || !formIdParam) return;
       
-      // Validate form before saving
+      // Validate only the fields the user has interacted with
       if (!validateForm()) {
         return;
       }
@@ -417,7 +414,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
                   <p className="text-gray-600">
                     {questionsToReview.length} question{questionsToReview.length !== 1 ? 's' : ''} need{questionsToReview.length === 1 ? 's' : ''} your review.
                     Some information was extracted from your documents but needs confirmation.
-                    <span className="font-medium ml-1">All fields are required.</span>
+                    <span className="font-medium ml-1">You can save partial answers and come back later to complete.</span>
                   </p>
                 </div>
               </div>
@@ -431,7 +428,6 @@ const MedicalHistoryOnboarding: React.FC = () => {
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium text-lg">
                       {question.text}
-                      <span className="text-red-500 ml-1">*</span>
                     </h4>
                     <span className="flex items-center">
                       <Edit size={16} className="text-gray-400 mr-1" />
@@ -489,7 +485,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
                   ) : (
                     <>
                       <Save size={18} />
-                      Save Answers
+                      Save Partial Answers
                     </>
                   )}
                 </Button>
