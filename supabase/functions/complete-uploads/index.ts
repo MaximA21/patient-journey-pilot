@@ -13,7 +13,7 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Hardcoded patient ID to use as default
+// Hardcoded patient ID to use for all documents
 const DEFAULT_PATIENT_ID = "0ea5b69f-95cd-4dae-80f7-199922da2924";
 
 serve(async (req) => {
@@ -37,10 +37,9 @@ serve(async (req) => {
     }
 
     // Extract parameters from the request body
-    const { patientId = DEFAULT_PATIENT_ID, documentIds } = requestBody;
-    console.log("Extracted patientId:", patientId, "and documentIds:", documentIds);
+    const { documentIds } = requestBody;
     
-    // Always use the default patient ID
+    // Always use the hardcoded patient ID
     const usePatientId = DEFAULT_PATIENT_ID;
     
     if (!usePatientId || !documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
@@ -53,12 +52,25 @@ serve(async (req) => {
     
     console.log(`Processing completed uploads for patient ${usePatientId}, ${documentIds.length} documents`);
     
-    // Verify all uploads are processed
+    // First, ensure all documents have the correct patient_id
+    const { data: updateResult, error: updateError } = await supabase
+      .from('documents_and_images')
+      .update({ patient_id: usePatientId })
+      .in('id', documentIds)
+      .is('patient_id', null);
+      
+    if (updateError) {
+      console.error('Error updating document patient IDs:', updateError);
+      // Continue processing anyway - we'll try to verify later
+    } else {
+      console.log(`Updated patient_id for documents that had null values: ${updateResult ? 'Success' : 'No updates needed'}`);
+    }
+    
+    // Verify all uploads are processed and have the correct patient_id
     const { data: documents, error: documentsError } = await supabase
       .from('documents_and_images')
-      .select('id, type, llm_output')
-      .in('id', documentIds)
-      .eq('patient_id', usePatientId);
+      .select('id, type, llm_output, patient_id')
+      .in('id', documentIds);
       
     if (documentsError) {
       console.error('Error fetching documents:', documentsError);
@@ -66,6 +78,26 @@ serve(async (req) => {
     }
     
     console.log("Found documents:", documents?.length || 0);
+    
+    // Check if documents have the correct patient_id
+    const docsWithWrongPatientId = documents?.filter(doc => 
+      doc.patient_id !== usePatientId) || [];
+      
+    if (docsWithWrongPatientId.length > 0) {
+      console.log(`${docsWithWrongPatientId.length} documents have incorrect patient_id, fixing...`);
+      
+      // Fix the patient_id for these documents
+      const { error: fixError } = await supabase
+        .from('documents_and_images')
+        .update({ patient_id: usePatientId })
+        .in('id', docsWithWrongPatientId.map(doc => doc.id));
+        
+      if (fixError) {
+        console.error('Error fixing document patient IDs:', fixError);
+      } else {
+        console.log('Successfully fixed document patient IDs');
+      }
+    }
     
     // Check if all uploads have been processed
     const unprocessedDocuments = documents?.filter(doc => 

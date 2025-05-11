@@ -13,7 +13,7 @@ export async function uploadDocument(file: File, patientId: string | null = null
     const fileExt = file.name.split('.').pop();
     // Make filename more unique by adding retry count and random string
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
-    // Use hardcoded patient ID as default path
+    // Hard-coded patient ID - ALWAYS use this ID for all uploads
     const defaultPatientId = "0ea5b69f-95cd-4dae-80f7-199922da2924";
     const folderPath = "uploads";
     const fileName = `${folderPath}/${uniqueId}.${fileExt}`;
@@ -39,8 +39,8 @@ export async function uploadDocument(file: File, patientId: string | null = null
       
     const publicUrl = urlData.publicUrl;
     
-    // Always use the specific patient ID (either provided or default)
-    const usePatientId = patientId || defaultPatientId;
+    // Always use the default patient ID regardless of what was passed in
+    const usePatientId = defaultPatientId;
     
     console.log(`Using patient ID for document: ${usePatientId}`);
     
@@ -48,10 +48,12 @@ export async function uploadDocument(file: File, patientId: string | null = null
     const recordData = {
       raw_input: publicUrl,
       display_name: file.name,
-      patient_id: usePatientId
+      patient_id: usePatientId // Always use the hardcoded patient ID
     };
     
-    // Insert record into documents_and_images table including display_name
+    console.log("Inserting record with data:", JSON.stringify(recordData));
+    
+    // Insert record into documents_and_images table including display_name and patient_id
     const { data, error } = await supabase
       .from('documents_and_images')
       .insert([recordData])
@@ -70,6 +72,11 @@ export async function uploadDocument(file: File, patientId: string | null = null
       throw error;
     }
     
+    // Verify the inserted record has the patient_id
+    if (data && data.length > 0) {
+      console.log("Successfully inserted record with patient_id:", data[0].patient_id);
+    }
+    
     return { 
       success: true, 
       url: publicUrl, 
@@ -86,8 +93,15 @@ export async function uploadDocument(file: File, patientId: string | null = null
 // New function to trigger document processing manually
 export async function processDocument(documentId: number, imageUrl: string) {
   try {
+    // Always ensure we're passing the patient_id in the function call
+    const defaultPatientId = "0ea5b69f-95cd-4dae-80f7-199922da2924";
+    
     const { data, error } = await supabase.functions.invoke('process-document', {
-      body: { record_id: documentId, image_url: imageUrl }
+      body: { 
+        record_id: documentId, 
+        image_url: imageUrl,
+        patient_id: defaultPatientId // Pass the patient_id here as well
+      }
     });
     
     if (error) {
