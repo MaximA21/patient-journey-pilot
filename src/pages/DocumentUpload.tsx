@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ const DocumentUpload: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState<Array<{id: number, url: string}>>([]);
   const [processingComplete, setProcessingComplete] = useState(false);
+  const [createdFormId, setCreatedFormId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   
@@ -139,15 +141,24 @@ const DocumentUpload: React.FC = () => {
       // If documents were uploaded, trigger document analysis
       if (uploadedDocuments.length > 0) {
         const documentIds = uploadedDocuments.map(doc => doc.id);
-        await triggerDocumentAnalysis(FIXED_PATIENT_ID, documentIds);
+        const analysisResult = await triggerDocumentAnalysis(FIXED_PATIENT_ID, documentIds);
+        
+        // Check if a form ID was returned from the analysis
+        if (analysisResult && analysisResult.formId) {
+          setCreatedFormId(analysisResult.formId);
+        }
       }
       
       toast.success("Documents uploaded successfully!");
       setProcessingComplete(true);
       
-      // Navigate to the medical history onboarding after a delay
+      // Navigate to the medical history onboarding after a delay, using the new form ID if available
       setTimeout(() => {
-        navigate(`/medical-history/${FIXED_PATIENT_ID}`);
+        if (createdFormId) {
+          navigate(`/medical-history/${FIXED_PATIENT_ID}?formId=${createdFormId}`);
+        } else {
+          navigate(`/medical-history/${FIXED_PATIENT_ID}`);
+        }
       }, 2000);
       
     } catch (error) {
@@ -243,9 +254,19 @@ const DocumentUpload: React.FC = () => {
       
       if (data.success) {
         toast.success("Document analysis complete!");
+        
+        // If a form was created, save its ID
+        if (data.formId) {
+          setCreatedFormId(data.formId);
+        }
       } else if (data.message === "Some documents still processing") {
         // Some documents are still processing
         toast.info(`${data.processedCount} of ${data.processedCount + data.unprocessedCount} documents processed`);
+        
+        // Set the form ID if it was returned
+        if (data.formId) {
+          setCreatedFormId(data.formId);
+        }
         
         // Set up a retry after a delay
         setTimeout(() => {

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -15,13 +15,18 @@ import { useAppContext } from "@/context/AppContext";
 import { Question, MedicalHistoryForm } from "@/types/medicalHistory";
 
 const CONFIDENCE_THRESHOLD = 0.7; // Questions below this confidence need review
-const SPECIFIC_FORM_ID = 1; // Updated to use numeric ID 1
 const FORM_NAME = "bogen1";
 
 const MedicalHistoryOnboarding: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
   const { mode } = useAppContext();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the formId from URL query parameters
+  const queryParams = new URLSearchParams(location.search);
+  const formIdParam = queryParams.get('formId');
+  const formId = formIdParam ? parseInt(formIdParam) : null;
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,20 +37,27 @@ const MedicalHistoryOnboarding: React.FC = () => {
   
   useEffect(() => {
     fetchMedicalHistoryForm();
-  }, [patientId]);
+  }, [patientId, formId]);
   
   const fetchMedicalHistoryForm = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      console.log(`Fetching medical history form with id: ${SPECIFIC_FORM_ID}`);
+      if (!formId) {
+        console.error("No form ID provided");
+        setError("No form ID provided. Please upload documents first.");
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log(`Fetching medical history form with id: ${formId}`);
       
       // Using maybeSingle() to handle cases where the row might or might not exist
       const { data: formData, error: formError } = await supabase
         .from('medical_history_form')
         .select('*')
-        .eq('id', SPECIFIC_FORM_ID)
+        .eq('id', formId)
         .maybeSingle();
       
       if (formError) {
@@ -56,8 +68,8 @@ const MedicalHistoryOnboarding: React.FC = () => {
       
       if (!formData) {
         // If no form exists, show an error message
-        console.error("No medical history form found with ID:", SPECIFIC_FORM_ID);
-        setError(`No medical history form found with ID: ${SPECIFIC_FORM_ID}`);
+        console.error("No medical history form found with ID:", formId);
+        setError(`No medical history form found with ID: ${formId}`);
         return;
       }
       
@@ -123,7 +135,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
   
   const handleSaveAnswers = async () => {
     try {
-      if (!medicalHistoryForm) return;
+      if (!medicalHistoryForm || !formId) return;
       
       setIsSaving(true);
       
@@ -150,7 +162,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
         .update({
           questions: updatedQuestions
         })
-        .eq('id', SPECIFIC_FORM_ID);
+        .eq('id', formId);
       
       if (error) {
         console.error("Error saving answers:", error);

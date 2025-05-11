@@ -16,6 +16,58 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // Hardcoded patient ID to use for all documents
 const DEFAULT_PATIENT_ID = "0ea5b69f-95cd-4dae-80f7-199922da2924";
 
+// Default questions template for medical history forms
+const DEFAULT_QUESTIONS = [
+  {
+    "id": "allergies",
+    "text": "Do you have any allergies?",
+    "answer": null,
+    "confidence": 0,
+    "answerType": "string",
+    "source": null
+  },
+  {
+    "id": "medications",
+    "text": "What medications are you currently taking?",
+    "answer": null,
+    "confidence": 0,
+    "answerType": "string",
+    "source": null
+  },
+  {
+    "id": "surgeries",
+    "text": "Have you had any surgeries?",
+    "answer": null,
+    "confidence": 0,
+    "answerType": "string",
+    "source": null
+  },
+  {
+    "id": "conditions",
+    "text": "Do you have any chronic medical conditions?",
+    "answer": null,
+    "confidence": 0,
+    "answerType": "string",
+    "source": null
+  },
+  {
+    "id": "family_history",
+    "text": "Do you have any significant family medical history?",
+    "answer": null,
+    "confidence": 0,
+    "answerType": "string",
+    "source": null
+  },
+  {
+    "id": "vacination",
+    "text": "Do you have any vacinations?",
+    "answer": null,
+    "confidence": 0,
+    "answerType": "string",
+    "source": null
+  }
+];
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -124,6 +176,26 @@ serve(async (req) => {
       }
     }
     
+    // Create a new medical history form record with default questions for this upload session
+    console.log("Creating new medical history form with default questions");
+    const formName = `Form-${new Date().toISOString()}`;
+    
+    const { data: newForm, error: formError } = await supabase
+      .from('medical_history_form')
+      .insert({
+        name: formName,
+        questions: DEFAULT_QUESTIONS
+      })
+      .select('id')
+      .single();
+    
+    if (formError) {
+      console.error('Error creating medical history form:', formError);
+      // Continue processing even if form creation fails
+    } else {
+      console.log(`Successfully created medical history form with ID: ${newForm.id}`);
+    }
+    
     // Check if all uploads have been processed
     const unprocessedDocuments = documents?.filter(doc => 
       !doc.type || !doc.llm_output) || [];
@@ -138,7 +210,8 @@ serve(async (req) => {
           message: 'Some documents still processing',
           unprocessedCount: unprocessedDocuments.length,
           unprocessedIds: unprocessedDocuments.map(doc => doc.id),
-          processedCount: (documents?.length || 0) - unprocessedDocuments.length
+          processedCount: (documents?.length || 0) - unprocessedDocuments.length,
+          formId: newForm?.id // Include the newly created form ID
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -159,7 +232,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({ 
         patientId: usePatientId,
-        documentIds 
+        documentIds,
+        formId: newForm?.id // Pass the newly created form ID to the analysis function
       })
     });
     
@@ -177,7 +251,8 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'All uploads processed and analysis completed',
-        analysisResult
+        analysisResult,
+        formId: newForm?.id // Include the newly created form ID
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
