@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { Camera, AlertTriangle } from "lucide-react";
+import { Camera, AlertTriangle, ArrowLeft } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -53,11 +53,24 @@ const AccessibilityMode: React.FC = () => {
     }
   };
   
+  const handleBackToHome = () => {
+    navigate("/");
+  };
+  
   return (
     <div className="min-h-screen bg-uber-white flex flex-col">
       <div className="flex-grow flex flex-col items-center justify-center p-6">
         <Card className="w-full max-w-lg shadow-lg">
-          <CardHeader className="text-center">
+          <CardHeader className="text-center relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleBackToHome}
+              className="absolute left-0 top-1/2 -translate-y-1/2"
+              aria-label="Back to home"
+            >
+              <ArrowLeft size={24} />
+            </Button>
             <CardTitle className="text-2xl">Fine Wine Aged Mode</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -80,7 +93,7 @@ const AccessibilityMode: React.FC = () => {
               </p>
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex flex-col gap-3">
             <Button 
               onClick={handleStartCamera}
               className="w-full bg-uber-black text-white rounded-md hover:bg-uber-gray-900 h-14 text-base flex items-center justify-center gap-3"
@@ -88,6 +101,15 @@ const AccessibilityMode: React.FC = () => {
             >
               <Camera size={20} />
               Start Camera Assistance
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={handleBackToHome}
+              className="w-full h-12 text-base"
+            >
+              <ArrowLeft size={18} className="mr-2" />
+              Back to Home
             </Button>
           </CardFooter>
         </Card>
