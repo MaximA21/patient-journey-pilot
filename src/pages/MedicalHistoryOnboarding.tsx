@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +26,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
   const [medicalHistoryForm, setMedicalHistoryForm] = useState<MedicalHistoryForm | null>(null);
   const [userAnswers, setUserAnswers] = useState<Record<string, any>>({});
   const [questionsToReview, setQuestionsToReview] = useState<Question[]>([]);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     fetchMedicalHistoryForm();
@@ -33,6 +35,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
   const fetchMedicalHistoryForm = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       
       // Fetch the medical history form
       const { data: formData, error: formError } = await supabase
@@ -41,14 +44,19 @@ const MedicalHistoryOnboarding: React.FC = () => {
         .single();
       
       if (formError) {
+        console.error("Error fetching medical history form:", formError);
+        setError(`Failed to fetch medical history form: ${formError.message}`);
         throw new Error(`Failed to fetch medical history form: ${formError.message}`);
       }
       
       if (!formData) {
         toast.error("Medical history form not found");
+        setError("Medical history form not found");
         navigate(`/patients/${patientId}`);
         return;
       }
+      
+      console.log("Raw form data from database:", formData);
       
       // Initialize the medical history form with proper typing
       const form: MedicalHistoryForm = {
@@ -67,7 +75,8 @@ const MedicalHistoryOnboarding: React.FC = () => {
           : []
       };
       
-      console.log("Medical history form:", form);
+      console.log("Processed medical history form:", form);
+      console.log("Total questions:", form.questions.length);
       
       // Filter questions that need review (null answers or low confidence)
       const toReview = form.questions.filter(q => 
@@ -75,12 +84,12 @@ const MedicalHistoryOnboarding: React.FC = () => {
         q.confidence < CONFIDENCE_THRESHOLD
       );
       
-      console.log("Questions that need review:", toReview);
+      console.log(`Questions that need review: ${toReview.length}`, toReview);
       
       // Initialize user answers with existing answers
       const initialAnswers: Record<string, any> = {};
       toReview.forEach(q => {
-        initialAnswers[q.id] = q.answer || "";
+        initialAnswers[q.id] = q.answer !== null ? q.answer : "";
       });
       
       setMedicalHistoryForm(form);
@@ -88,6 +97,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
       setUserAnswers(initialAnswers);
     } catch (error) {
       console.error("Error fetching medical history:", error);
+      setError("Failed to load medical history");
       toast.error("Failed to load medical history");
     } finally {
       setIsLoading(false);
@@ -125,6 +135,8 @@ const MedicalHistoryOnboarding: React.FC = () => {
       // Save updated questions to database - convert to plain objects for supabase compatibility
       const plainQuestions = updatedQuestions.map(q => ({ ...q }));
       
+      console.log("Saving updated questions:", plainQuestions);
+      
       // Save updated questions to database
       const { error } = await supabase
         .from('medical_history_form')
@@ -134,6 +146,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
         .eq('id', medicalHistoryForm.id);
       
       if (error) {
+        console.error("Error saving answers:", error);
         throw new Error(`Failed to save answers: ${error.message}`);
       }
       
@@ -204,8 +217,66 @@ const MedicalHistoryOnboarding: React.FC = () => {
     );
   }
   
+  if (error) {
+    return (
+      <div className="min-h-screen bg-uber-gray-50 flex flex-col">
+        <Header title="Error" showBackButton />
+        <div className="flex-grow p-4 flex flex-col items-center justify-center">
+          <Card className="w-full max-w-lg mx-auto">
+            <CardContent className="p-6 text-center">
+              <div className="flex justify-center mb-4">
+                <AlertTriangle size={48} className="text-red-500" />
+              </div>
+              <h2 className="text-xl font-semibold mb-2">Medical History Error</h2>
+              <p className="text-gray-600 mb-6">
+                {error}
+              </p>
+              <Button
+                onClick={() => fetchMedicalHistoryForm()}
+                className="mb-4 bg-uber-black text-white w-full"
+              >
+                Try Again
+              </Button>
+              <Button
+                onClick={() => navigate(`/patients/${patientId}`)}
+                variant="outline"
+                className="w-full"
+              >
+                Return to Patient Profile
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!medicalHistoryForm) {
+    return (
+      <div className="min-h-screen bg-uber-gray-50 flex flex-col">
+        <Header title="No Medical History" showBackButton />
+        <div className="flex-grow p-4 flex flex-col items-center justify-center">
+          <Card className="w-full max-w-lg mx-auto">
+            <CardContent className="p-6 text-center">
+              <h2 className="text-xl font-semibold mb-2">No Medical History Found</h2>
+              <p className="text-gray-600 mb-6">
+                No medical history information is available for this patient.
+              </p>
+              <Button
+                onClick={() => navigate(`/patients/${patientId}`)}
+                className="bg-uber-black text-white w-full"
+              >
+                Return to Patient Profile
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+  
   // Make sure questionsToReview is defined and properly checked
-  if (!questionsToReview.length) {
+  if (!questionsToReview || questionsToReview.length === 0) {
     return (
       <div className="min-h-screen bg-uber-gray-50 flex flex-col">
         <Header title="Medical History Complete" showBackButton />

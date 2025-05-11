@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -79,6 +78,8 @@ const PatientDetail: React.FC = () => {
         return;
       }
       
+      console.log("Medical history form raw data:", data);
+      
       if (data && data.questions && Array.isArray(data.questions)) {
         // Map the questions from JSON to our Question type
         const typedQuestions: Question[] = data.questions.map((q: any) => ({
@@ -91,15 +92,20 @@ const PatientDetail: React.FC = () => {
           source: q.source
         }));
         
+        console.log("Typed questions:", typedQuestions);
+        
         // Check if there are questions that need review
         const questionsNeedingReview = typedQuestions.filter(q => 
           q.answer === null || q.confidence < CONFIDENCE_THRESHOLD
         );
         
         console.log("Questions needing review:", questionsNeedingReview.length);
+        console.log("Specific questions needing review:", questionsNeedingReview);
         
         setMedicalHistoryQuestions(typedQuestions);
         setMedicalHistoryNeeded(questionsNeedingReview.length > 0);
+      } else {
+        console.warn("Medical history data is not in expected format:", data);
       }
     } catch (error) {
       console.error("Error checking medical history:", error);
@@ -150,7 +156,7 @@ const PatientDetail: React.FC = () => {
         <div className="w-full max-w-2xl mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h2 className={`font-semibold text-uber-black ${mode === "accessibility" ? "text-2xl" : "text-xl"}`}>
-              {patient.name} {patient.surname}
+              {patient?.name} {patient?.surname}
             </h2>
             <Button 
               onClick={() => navigate("/upload")}
