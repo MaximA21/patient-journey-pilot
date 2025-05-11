@@ -20,7 +20,7 @@ const DEFAULT_PATIENT_ID = "0ea5b69f-95cd-4dae-80f7-199922da2924";
 const DEFAULT_QUESTIONS = [
   {
     "id": "current_complaints",
-    "text": „Jetzige Beschwerden, Gesundheitsstörungen,
+    "text": "Jetzige Beschwerden, Gesundheitsstörungen",
     "answer": null,
     "confidence": 0,
     "answerType": "string",
@@ -60,7 +60,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "Typhoid/paratyphoid/Ruhr",
-    "text": „Hatten Sie Typhoid/paratyphoid/Ruhr?",
+    "text": "Hatten Sie Typhoid/paratyphoid/Ruhr?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -68,7 +68,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "tuberculosis (TB)",
-    "text": „Hatten Sie Tuberkulose (Tbc)?",
+    "text": "Hatten Sie Tuberkulose (Tbc)?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -76,7 +76,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "glaucoma, glaucoma",
-    "text": „Hatten Sie Grüner Star, Glaukom?“,
+    "text": "Hatten Sie Grüner Star, Glaukom?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -84,7 +84,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "sinusitis",
-    "text": „Hatten Sie Nasen-Nebenhöhlenentzündungen?",
+    "text": "Hatten Sie Nasen-Nebenhöhlenentzündungen?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -92,7 +92,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "thyroid diseases",
-    "text": „Hatten Sie Schilddrüsenkrankheiten?",
+    "text": "Hatten Sie Schilddrüsenkrankheiten?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -100,7 +100,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "pneumonia, pleurisy, prolonged bronchitis",
-    "text": „Hatten Sie Lungen-, Rippenfellentzündung länger dauernde Bronchitis?",
+    "text": "Hatten Sie Lungen-, Rippenfellentzündung länger dauernde Bronchitis?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -108,7 +108,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "hypertension",
-    "text": „Hatten Sie hohen Blutdruck?",
+    "text": "Hatten Sie hohen Blutdruck?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -132,7 +132,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "heart_diseases",
-    "text": „Hatten Sie andere Herzkrankheiten oder Gefäßleiden?",
+    "text": "Hatten Sie andere Herzkrankheiten oder Gefäßleiden?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -164,7 +164,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "gastrointestinal",
-    "text": „Hatten Sie Magen- oder Zwölffingerdarmgeschwür oder Verdauungsprobleme?",
+    "text": "Hatten Sie Magen- oder Zwölffingerdarmgeschwür oder Verdauungsprobleme?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -172,7 +172,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "liver_diseases",
-    "text": „Hatten Sie Leber- oder Gallenerkrankungen?",
+    "text": "Hatten Sie Leber- oder Gallenerkrankungen?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -188,7 +188,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "prostate",
-    "text": „Hatten Sie Erkrankungen der Vorsteherdrüse (Prostata)?",
+    "text": "Hatten Sie Erkrankungen der Vorsteherdrüse (Prostata)?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -196,7 +196,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "urination_problems",
-    "text": „Hatten Sie Schwierigkeiten beim Wasserlassen?",
+    "text": "Hatten Sie Schwierigkeiten beim Wasserlassen?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -204,7 +204,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "thyroid",
-    "text": „Hatten Sie Schilddrüsenerkrankungen?",
+    "text": "Hatten Sie Schilddrüsenerkrankungen?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -212,7 +212,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "cancer",
-    "text": „Haben oder hatten Sie Krebs (bösartige Tumore)?",
+    "text": "Haben oder hatten Sie Krebs (bösartige Tumore)?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
@@ -220,7 +220,7 @@ const DEFAULT_QUESTIONS = [
   },
   {
     "id": "epilepsy",
-    "text": „Hatten Sie Epilepsie (Krampfanfälle)?",
+    "text": "Hatten Sie Epilepsie (Krampfanfälle)?",
     "answer": null,
     "confidence": 0,
     "answerType": "boolean",
