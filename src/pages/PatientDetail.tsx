@@ -10,6 +10,10 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { Question } from "@/types/medicalHistory";
 
+// The specific form ID we want to use
+const SPECIFIC_FORM_ID = "34c4ba3c-efa9-4dcb-9991-3bbbec7dda99";
+const CONFIDENCE_THRESHOLD = 0.7; // Questions below this confidence need review
+
 interface Patient {
   id: string;
   name: string;
@@ -36,8 +40,6 @@ const PatientDetail: React.FC = () => {
   const [medicalHistoryNeeded, setMedicalHistoryNeeded] = useState(false);
   const [medicalHistoryQuestions, setMedicalHistoryQuestions] = useState<Question[]>([]);
   const navigate = useNavigate();
-
-  const CONFIDENCE_THRESHOLD = 0.7; // Questions below this confidence need review
 
   useEffect(() => {
     async function fetchPatientDetails() {
@@ -68,31 +70,25 @@ const PatientDetail: React.FC = () => {
 
   const fetchMedicalHistory = async () => {
     try {
-      // Changed from .single() to .limit(1) to avoid errors when multiple records exist
+      console.log(`Fetching specific medical history form with id: ${SPECIFIC_FORM_ID}`);
+      
+      // Directly fetch the specific medical history form by ID
       const { data, error } = await supabase
         .from('medical_history_form')
         .select('*')
-        .limit(1);
+        .eq('id', SPECIFIC_FORM_ID)
+        .single();
       
       if (error) {
-        console.error("Error fetching medical history form:", error);
+        console.error("Error fetching specific medical history form:", error);
         return;
       }
       
-      // Check if we found any data
-      if (!data || data.length === 0) {
-        console.log("No medical history form found");
-        setMedicalHistoryQuestions([]);
-        setMedicalHistoryNeeded(true); // If no form exists, we definitely need to create one
-        return;
-      }
+      console.log("Medical history form raw data:", data);
       
-      const formData = data[0];
-      console.log("Medical history form raw data:", formData);
-      
-      if (formData && formData.questions && Array.isArray(formData.questions)) {
+      if (data && data.questions && Array.isArray(data.questions)) {
         // Map the questions from JSON to our Question type
-        const typedQuestions: Question[] = formData.questions.map((q: any) => ({
+        const typedQuestions: Question[] = data.questions.map((q: any) => ({
           id: q.id || String(Math.random()),
           text: q.text || "Unknown question",
           answer: q.answer,
@@ -115,7 +111,7 @@ const PatientDetail: React.FC = () => {
         setMedicalHistoryQuestions(typedQuestions);
         setMedicalHistoryNeeded(questionsNeedingReview.length > 0);
       } else {
-        console.warn("Medical history data is not in expected format:", formData);
+        console.warn("Medical history data is not in expected format:", data);
         setMedicalHistoryNeeded(true); // If data format is incorrect, we need to fix it
       }
     } catch (error) {
