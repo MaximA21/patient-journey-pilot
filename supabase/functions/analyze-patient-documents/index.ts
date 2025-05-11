@@ -89,7 +89,7 @@ async function createMedicalHistoryForm() {
     { id: "surgeries", text: "Have you had any surgeries?", answer: null, confidence: 0, answerType: "string", description: "List previous surgeries with dates if available" },
     { id: "chronic_conditions", text: "Do you have any chronic medical conditions?", answer: null, confidence: 0, answerType: "string", description: "List diagnosed chronic conditions like diabetes, hypertension, etc." },
     { id: "family_history", text: "Do you have any significant family medical history?", answer: null, confidence: 0, answerType: "string", description: "List relevant family medical conditions, especially hereditary ones" },
-    { id: "vaccinations", text: "What vaccinations have you received?", answer: null, confidence: 0, answerType: "string", description: "List specific vaccinations and dates if available" }
+    { id: "vaccinations", text: "What vaccinations have you received??", answer: null, confidence: 0, answerType: "string", description: "List specific vaccinations and dates if available" }
   ];
 
   const { data: newForm, error: createError } = await supabase
