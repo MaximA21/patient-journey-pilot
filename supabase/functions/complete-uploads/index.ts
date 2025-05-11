@@ -13,6 +13,9 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Hardcoded patient ID to use as default
+const DEFAULT_PATIENT_ID = "0ea5b69f-95cd-4dae-80f7-199922da2924";
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -34,10 +37,13 @@ serve(async (req) => {
     }
 
     // Extract parameters from the request body
-    const { patientId, documentIds } = requestBody;
+    const { patientId = DEFAULT_PATIENT_ID, documentIds } = requestBody;
     console.log("Extracted patientId:", patientId, "and documentIds:", documentIds);
     
-    if (!patientId || !documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+    // Always use the default patient ID if none provided or invalid
+    const usePatientId = patientId || DEFAULT_PATIENT_ID;
+    
+    if (!usePatientId || !documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
       console.error("Missing or invalid patientId or documentIds");
       return new Response(
         JSON.stringify({ error: 'Missing or invalid patientId or documentIds' }),
@@ -45,14 +51,14 @@ serve(async (req) => {
       );
     }
     
-    console.log(`Processing completed uploads for patient ${patientId}, ${documentIds.length} documents`);
+    console.log(`Processing completed uploads for patient ${usePatientId}, ${documentIds.length} documents`);
     
     // Verify all uploads are processed
     const { data: documents, error: documentsError } = await supabase
       .from('documents_and_images')
       .select('id, type, llm_output')
       .in('id', documentIds)
-      .eq('patient_id', patientId);
+      .eq('patient_id', usePatientId);
       
     if (documentsError) {
       console.error('Error fetching documents:', documentsError);
@@ -94,7 +100,10 @@ serve(async (req) => {
         'Authorization': `Bearer ${supabaseServiceKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ patientId, documentIds })
+      body: JSON.stringify({ 
+        patientId: usePatientId,
+        documentIds 
+      })
     });
     
     if (!analysisResponse.ok) {

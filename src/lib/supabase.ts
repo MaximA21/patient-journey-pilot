@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 // Document upload function with retry limit and unique filename generation
@@ -12,8 +13,9 @@ export async function uploadDocument(file: File, patientId: string | null = null
     const fileExt = file.name.split('.').pop();
     // Make filename more unique by adding retry count and random string
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
-    // Use "uploads" as default path if no patient ID is provided
-    const folderPath = patientId || "uploads";
+    // Use hardcoded patient ID as default path
+    const defaultPatientId = "0ea5b69f-95cd-4dae-80f7-199922da2924";
+    const folderPath = patientId || defaultPatientId;
     const fileName = `${folderPath}/${uniqueId}.${fileExt}`;
     const filePath = `${fileName}`;
     
@@ -37,16 +39,15 @@ export async function uploadDocument(file: File, patientId: string | null = null
       
     const publicUrl = urlData.publicUrl;
     
-    // Create record data without patient_id if none is provided
+    // Always use the specific patient ID (either provided or default)
+    const usePatientId = patientId || defaultPatientId;
+    
+    // Create record data with patient_id
     const recordData = {
       raw_input: publicUrl,
-      display_name: file.name
+      display_name: file.name,
+      patient_id: usePatientId
     };
-    
-    // Only add patient_id if it's provided and not the default UUID
-    if (patientId && patientId !== "00000000-0000-0000-0000-000000000000") {
-      Object.assign(recordData, { patient_id: patientId });
-    }
     
     // Insert record into documents_and_images table including display_name
     const { data, error } = await supabase

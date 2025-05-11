@@ -15,6 +15,9 @@ import { supabase } from "@/integrations/supabase/client";
 const SUPABASE_URL = "https://rkjqdxywsdikcywxggde.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJranFkeHl3c2Rpa2N5d3hnZ2RlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4NzIwOTAsImV4cCI6MjA2MjQ0ODA5MH0.mR6mCEhgr_K_WEoZ2v_5j8AdG1jxh3pp1Nk7A4mKx44";
 
+// Hardcoded patient ID as requested
+const FIXED_PATIENT_ID = "0ea5b69f-95cd-4dae-80f7-199922da2924";
+
 const DocumentUpload: React.FC = () => {
   const { mode, addUploadedDocument } = useAppContext();
   const [files, setFiles] = useState<File[]>([]);
@@ -26,9 +29,10 @@ const DocumentUpload: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Extract patient ID from URL search params
+  // Extract patient ID from URL search params or use fixed ID
   const queryParams = new URLSearchParams(location.search);
-  const patientId = queryParams.get('patientId');
+  const urlPatientId = queryParams.get('patientId');
+  const patientId = FIXED_PATIENT_ID; // Always use the fixed patient ID
   
   // If in accessibility mode, redirect to home
   useEffect(() => {
@@ -78,7 +82,7 @@ const DocumentUpload: React.FC = () => {
       
       // Upload each file
       for (const file of files) {
-        // Pass patientId if available
+        // Always pass the fixed patient ID
         const result = await uploadDocument(file, patientId);
         if (result.success && result.data && result.data[0]) {
           const documentId = result.data[0].id;
@@ -120,8 +124,8 @@ const DocumentUpload: React.FC = () => {
       
       setUploadedDocs(uploadedDocuments);
       
-      // If patientId is provided and documents were uploaded, trigger document analysis
-      if (patientId && uploadedDocuments.length > 0) {
+      // If documents were uploaded, trigger document analysis
+      if (uploadedDocuments.length > 0) {
         const documentIds = uploadedDocuments.map(doc => doc.id);
         await triggerDocumentAnalysis(patientId, documentIds);
       }
@@ -216,7 +220,7 @@ const DocumentUpload: React.FC = () => {
             
             <p className="text-uber-gray-600 mb-6">
               Please upload your medical documents, prescriptions, or test results.
-              {patientId && <span className="font-medium"> These will be linked to the selected patient.</span>}
+              These will be linked to patient ID: {patientId}
             </p>
             
             <input
