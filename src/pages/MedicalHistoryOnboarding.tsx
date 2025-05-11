@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,12 +59,13 @@ const MedicalHistoryOnboarding: React.FC = () => {
       
       console.log(`Fetching medical history form with id: ${formId}`);
       
-      // Changed from .single() to .eq('id', formId) to ensure we get the exact form we want
+      // Using explicit ID equality and only retrieving the first result to avoid multiple rows issue
       const { data: formData, error: formError } = await supabase
         .from('medical_history_form')
         .select('*')
         .eq('id', formId)
-        .maybeSingle();
+        .limit(1)
+        .single();
       
       if (formError) {
         console.error("Error fetching medical history form:", formError);
