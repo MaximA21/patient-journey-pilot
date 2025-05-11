@@ -40,17 +40,24 @@ const MedicalHistoryOnboarding: React.FC = () => {
       
       console.log(`Fetching medical history form with id: ${SPECIFIC_FORM_ID}`);
       
-      // Directly fetch the specific medical history form by ID
+      // Use maybeSingle() instead of single() to handle cases where the row might not exist
       const { data: formData, error: formError } = await supabase
         .from('medical_history_form')
         .select('*')
         .eq('id', SPECIFIC_FORM_ID)
-        .single();
+        .maybeSingle();
       
       if (formError) {
         console.error("Error fetching specific medical history form:", formError);
         setError(`Failed to fetch medical history form: ${formError.message}`);
         throw new Error(`Failed to fetch medical history form: ${formError.message}`);
+      }
+      
+      if (!formData) {
+        console.log("Form not found, creating a new one with empty questions");
+        // If the form doesn't exist, create it
+        await createMedicalHistoryForm();
+        return; // This will trigger a re-fetch
       }
       
       console.log("Successfully fetched medical history form:", formData);
@@ -62,6 +69,38 @@ const MedicalHistoryOnboarding: React.FC = () => {
       toast.error("Failed to load medical history");
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  // Function to create the medical history form if it doesn't exist
+  const createMedicalHistoryForm = async () => {
+    try {
+      console.log(`Creating new medical history form with id: ${SPECIFIC_FORM_ID}`);
+      
+      // Create an empty form with the specific ID
+      const { data, error } = await supabase
+        .from('medical_history_form')
+        .insert({
+          id: SPECIFIC_FORM_ID,
+          name: FORM_NAME,
+          questions: []
+        })
+        .select();
+      
+      if (error) {
+        console.error("Error creating medical history form:", error);
+        setError(`Failed to create medical history form: ${error.message}`);
+        throw new Error(`Failed to create medical history form: ${error.message}`);
+      }
+      
+      console.log("Successfully created medical history form:", data);
+      
+      // If successful, re-fetch the form
+      fetchMedicalHistoryForm();
+    } catch (error) {
+      console.error("Error creating medical history form:", error);
+      setError(`Failed to create medical history form: ${error instanceof Error ? error.message : String(error)}`);
+      toast.error("Failed to create medical history form");
     }
   };
   

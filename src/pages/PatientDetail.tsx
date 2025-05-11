@@ -72,12 +72,12 @@ const PatientDetail: React.FC = () => {
     try {
       console.log(`Fetching specific medical history form with id: ${SPECIFIC_FORM_ID}`);
       
-      // Directly fetch the specific medical history form by ID
+      // Use maybeSingle() instead of single() to prevent errors when no row is found
       const { data, error } = await supabase
         .from('medical_history_form')
         .select('*')
         .eq('id', SPECIFIC_FORM_ID)
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.error("Error fetching specific medical history form:", error);
