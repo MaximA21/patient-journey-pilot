@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +15,7 @@ import { useAppContext } from "@/context/AppContext";
 import { Question, MedicalHistoryForm } from "@/types/medicalHistory";
 
 const CONFIDENCE_THRESHOLD = 0.7; // Questions below this confidence need review
-const SPECIFIC_FORM_ID = "34c4ba3c-efa9-4dcb-9991-3bbbec7dda99";
+const SPECIFIC_FORM_ID = "1"; // Updated to use ID "1"
 const FORM_NAME = "bogen1";
 
 const MedicalHistoryOnboarding: React.FC = () => {
@@ -54,7 +55,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
       }
       
       if (!formData) {
-        // If no form exists, show an error message instead of creating a new one
+        // If no form exists, show an error message
         console.error("No medical history form found with ID:", SPECIFIC_FORM_ID);
         setError(`No medical history form found with ID: ${SPECIFIC_FORM_ID}`);
         return;
@@ -143,7 +144,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
       
       console.log("Saving updated questions:", updatedQuestions);
       
-      // Save updated questions to database - using the specific form ID
+      // Update the existing form with updated questions
       const { error } = await supabase
         .from('medical_history_form')
         .update({

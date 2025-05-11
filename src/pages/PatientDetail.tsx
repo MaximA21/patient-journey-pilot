@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
@@ -10,8 +11,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { Question } from "@/types/medicalHistory";
 
-// The specific form ID we want to use
-const SPECIFIC_FORM_ID = "34c4ba3c-efa9-4dcb-9991-3bbbec7dda99";
+// The specific form ID we want to use - updated to "1"
+const SPECIFIC_FORM_ID = "1";
 const CONFIDENCE_THRESHOLD = 0.7; // Questions below this confidence need review
 
 interface Patient {
@@ -70,7 +71,7 @@ const PatientDetail: React.FC = () => {
 
   const fetchMedicalHistory = async () => {
     try {
-      console.log(`Fetching specific medical history form with id: ${SPECIFIC_FORM_ID}`);
+      console.log(`Fetching medical history form with id: ${SPECIFIC_FORM_ID}`);
       
       // Use maybeSingle() instead of single() to prevent errors when no row is found
       const { data, error } = await supabase

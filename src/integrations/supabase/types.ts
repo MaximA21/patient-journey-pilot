@@ -42,19 +42,19 @@ export type Database = {
       medical_history_form: {
         Row: {
           created_at: string
-          id: string
+          id: number
           name: string | null
           questions: Json | null
         }
         Insert: {
           created_at?: string
-          id?: string
+          id?: number
           name?: string | null
           questions?: Json | null
         }
         Update: {
           created_at?: string
-          id?: string
+          id?: number
           name?: string | null
           questions?: Json | null
         }
