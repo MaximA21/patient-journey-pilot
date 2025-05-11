@@ -11,6 +11,10 @@ import { Upload, X, ImagePlus, FileText, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
+// Constants for Supabase URLs - use the same values from client.ts
+const SUPABASE_URL = "https://rkjqdxywsdikcywxggde.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJranFkeHl3c2Rpa2N5d3hnZ2RlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4NzIwOTAsImV4cCI6MjA2MjQ0ODA5MH0.mR6mCEhgr_K_WEoZ2v_5j8AdG1jxh3pp1Nk7A4mKx44";
+
 const DocumentUpload: React.FC = () => {
   const { mode, addUploadedDocument } = useAppContext();
   const [files, setFiles] = useState<File[]>([]);
@@ -145,11 +149,11 @@ const DocumentUpload: React.FC = () => {
     try {
       toast.info("Analyzing documents...");
       
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/complete-uploads`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/complete-uploads`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.supabaseKey}`
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({
           patientId,
