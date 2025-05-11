@@ -44,16 +44,16 @@ export async function uploadDocument(file: File, patientId: string | null = null
     
     console.log(`Using patient ID for document: ${usePatientId}`);
     
-    // Create record data with patient_id
+    // Create record data with patient_id - ENSURE IT'S NOT NULL
     const recordData = {
       raw_input: publicUrl,
       display_name: file.name,
-      patient_id: usePatientId // Always use the hardcoded patient ID
+      patient_id: usePatientId 
     };
     
     console.log("Inserting record with data:", JSON.stringify(recordData));
     
-    // Insert record into documents_and_images table including display_name and patient_id
+    // Insert record into documents_and_images table including patient_id
     const { data, error } = await supabase
       .from('documents_and_images')
       .insert([recordData])
@@ -75,6 +75,23 @@ export async function uploadDocument(file: File, patientId: string | null = null
     // Verify the inserted record has the patient_id
     if (data && data.length > 0) {
       console.log("Successfully inserted record with patient_id:", data[0].patient_id);
+      
+      // Double-check that patient_id was actually stored
+      if (!data[0].patient_id) {
+        console.error("WARNING: patient_id appears to be null after insert!");
+        
+        // Try to update it explicitly
+        const { error: updateError } = await supabase
+          .from('documents_and_images')
+          .update({ patient_id: usePatientId })
+          .eq('id', data[0].id);
+          
+        if (updateError) {
+          console.error("Failed to update patient_id:", updateError);
+        } else {
+          console.log("Successfully updated patient_id after insert");
+        }
+      }
     }
     
     return { 

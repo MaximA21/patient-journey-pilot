@@ -52,18 +52,20 @@ serve(async (req) => {
     
     console.log(`Processing completed uploads for patient ${usePatientId}, ${documentIds.length} documents`);
     
-    // First, ensure all documents have the correct patient_id
+    // First, ensure all documents have the correct patient_id - THIS IS THE KEY FIX
+    console.log(`Updating patient_id for all documents to: ${usePatientId}`);
+    
+    // Update ALL documents in the list regardless of current patient_id value
     const { data: updateResult, error: updateError } = await supabase
       .from('documents_and_images')
       .update({ patient_id: usePatientId })
-      .in('id', documentIds)
-      .is('patient_id', null);
+      .in('id', documentIds);
       
     if (updateError) {
       console.error('Error updating document patient IDs:', updateError);
-      // Continue processing anyway - we'll try to verify later
+      throw updateError;
     } else {
-      console.log(`Updated patient_id for documents that had null values: ${updateResult ? 'Success' : 'No updates needed'}`);
+      console.log(`Updated patient_id for documents: ${updateResult ? 'Success' : 'No updates needed'}`);
     }
     
     // Verify all uploads are processed and have the correct patient_id
@@ -86,16 +88,39 @@ serve(async (req) => {
     if (docsWithWrongPatientId.length > 0) {
       console.log(`${docsWithWrongPatientId.length} documents have incorrect patient_id, fixing...`);
       
-      // Fix the patient_id for these documents
-      const { error: fixError } = await supabase
-        .from('documents_and_images')
-        .update({ patient_id: usePatientId })
-        .in('id', docsWithWrongPatientId.map(doc => doc.id));
-        
-      if (fixError) {
-        console.error('Error fixing document patient IDs:', fixError);
+      // Fix the patient_id for these documents - more aggressive fixing
+      try {
+        const { error: fixError } = await supabase
+          .from('documents_and_images')
+          .update({ patient_id: usePatientId })
+          .in('id', docsWithWrongPatientId.map(doc => doc.id));
+          
+        if (fixError) {
+          console.error('Error fixing document patient IDs:', fixError);
+          throw fixError;
+        } else {
+          console.log('Successfully fixed document patient IDs');
+        }
+      } catch (e) {
+        console.error('Exception fixing document patient IDs:', e);
+        throw e;
+      }
+    }
+    
+    // Additional verification - check if any documents STILL have incorrect patient_id
+    const { data: verifyDocs, error: verifyError } = await supabase
+      .from('documents_and_images')
+      .select('id, patient_id')
+      .in('id', documentIds);
+      
+    if (verifyError) {
+      console.error('Error verifying documents:', verifyError);
+    } else {
+      const stillWrong = verifyDocs?.filter(doc => doc.patient_id !== usePatientId) || [];
+      if (stillWrong.length > 0) {
+        console.error(`CRITICAL: ${stillWrong.length} documents STILL have incorrect patient_id!`);
       } else {
-        console.log('Successfully fixed document patient IDs');
+        console.log('Verified: All documents now have correct patient_id');
       }
     }
     

@@ -37,15 +37,7 @@ export type Database = {
           raw_input?: string | null
           type?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "documents_and_images_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       medical_history_form: {
         Row: {

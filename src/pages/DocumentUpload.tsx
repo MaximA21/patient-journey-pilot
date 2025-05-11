@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,7 @@ import { Upload, X, ImagePlus, FileText, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-// Fixed patient ID to use for all uploads
+// Fixed patient ID to use for all uploads - CRITICAL TO KEEP CONSISTENT
 const FIXED_PATIENT_ID = "0ea5b69f-95cd-4dae-80f7-199922da2924";
 
 const DocumentUpload: React.FC = () => {
@@ -73,12 +72,30 @@ const DocumentUpload: React.FC = () => {
       // Upload each file
       for (const file of files) {
         console.log(`Uploading file with patient ID: ${FIXED_PATIENT_ID}`);
-        // Always pass the fixed patient ID
+        
+        // Always explicitly pass the fixed patient ID
         const result = await uploadDocument(file, FIXED_PATIENT_ID);
         
         if (result.success && result.data && result.data[0]) {
           const documentId = result.data[0].id;
           const documentUrl = result.url;
+          
+          // Verify patient_id was set correctly
+          if (!result.data[0].patient_id || result.data[0].patient_id !== FIXED_PATIENT_ID) {
+            console.error("WARNING: patient_id incorrect or missing after upload. Attempting to fix...");
+            
+            // Fix the patient_id with an explicit update
+            const { error: updateError } = await supabase
+              .from('documents_and_images')
+              .update({ patient_id: FIXED_PATIENT_ID })
+              .eq('id', documentId);
+              
+            if (updateError) {
+              console.error("Failed to fix patient_id:", updateError);
+            } else {
+              console.log("Successfully fixed patient_id");
+            }
+          }
           
           uploadedDocuments.push({
             id: documentId,
@@ -116,7 +133,7 @@ const DocumentUpload: React.FC = () => {
       
       setUploadedDocs(uploadedDocuments);
       
-      // Verify that documents have the correct patient_id
+      // CRITICAL: Always verify and fix document patient IDs
       await verifyDocumentPatientIds(uploadedDocuments.map(doc => doc.id));
       
       // If documents were uploaded, trigger document analysis
@@ -141,9 +158,10 @@ const DocumentUpload: React.FC = () => {
     }
   };
   
-  // Function to verify document patient IDs
+  // Function to verify document patient IDs - ENHANCED for reliability
   const verifyDocumentPatientIds = async (documentIds: number[]) => {
     try {
+      // First attempt - check if patient IDs are set correctly
       const { data, error } = await supabase
         .from('documents_and_images')
         .select('id, patient_id')
@@ -157,21 +175,44 @@ const DocumentUpload: React.FC = () => {
       console.log("Document patient IDs:", data);
       
       // Check if any documents don't have the correct patient ID
-      const docsWithoutPatientId = data?.filter(doc => doc.patient_id !== FIXED_PATIENT_ID) || [];
+      const docsWithoutPatientId = data?.filter(doc => 
+        doc.patient_id !== FIXED_PATIENT_ID || doc.patient_id === null
+      ) || [];
       
       if (docsWithoutPatientId.length > 0) {
         console.log(`Found ${docsWithoutPatientId.length} documents without correct patient ID, fixing...`);
         
-        // Fix the patient_id for these documents
-        const { error: updateError } = await supabase
-          .from('documents_and_images')
-          .update({ patient_id: FIXED_PATIENT_ID })
-          .in('id', docsWithoutPatientId.map(doc => doc.id));
-          
-        if (updateError) {
-          console.error("Error fixing document patient IDs:", updateError);
-        } else {
-          console.log("Successfully fixed document patient IDs");
+        // Fix the patient_id for these documents with an explicit update
+        try {
+          const { error: updateError } = await supabase
+            .from('documents_and_images')
+            .update({ patient_id: FIXED_PATIENT_ID })
+            .in('id', docsWithoutPatientId.map(doc => doc.id));
+            
+          if (updateError) {
+            console.error("Error fixing document patient IDs:", updateError);
+          } else {
+            console.log("Successfully fixed document patient IDs");
+            
+            // Double-check that the updates actually worked
+            const { data: verifyData, error: verifyError } = await supabase
+              .from('documents_and_images')
+              .select('id, patient_id')
+              .in('id', docsWithoutPatientId.map(doc => doc.id));
+              
+            if (verifyError) {
+              console.error("Error verifying document patient ID fixes:", verifyError);
+            } else {
+              const stillWrong = verifyData?.filter(doc => doc.patient_id !== FIXED_PATIENT_ID) || [];
+              if (stillWrong.length > 0) {
+                console.error(`CRITICAL: ${stillWrong.length} documents STILL have incorrect patient_id!`);
+              } else {
+                console.log('Verified: All documents now have correct patient_id');
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Exception fixing patient IDs:", e);
         }
       }
     } catch (error) {
