@@ -40,7 +40,7 @@ const MedicalHistoryOnboarding: React.FC = () => {
       
       console.log(`Fetching medical history form with id: ${SPECIFIC_FORM_ID}`);
       
-      // Use maybeSingle() instead of single() to handle cases where the row might not exist
+      // Using maybeSingle() to handle cases where the row might or might not exist
       const { data: formData, error: formError } = await supabase
         .from('medical_history_form')
         .select('*')
@@ -48,16 +48,16 @@ const MedicalHistoryOnboarding: React.FC = () => {
         .maybeSingle();
       
       if (formError) {
-        console.error("Error fetching specific medical history form:", formError);
+        console.error("Error fetching medical history form:", formError);
         setError(`Failed to fetch medical history form: ${formError.message}`);
-        throw new Error(`Failed to fetch medical history form: ${formError.message}`);
+        return;
       }
       
       if (!formData) {
-        console.log("Form not found, creating a new one with empty questions");
-        // If the form doesn't exist, create it
-        await createMedicalHistoryForm();
-        return; // This will trigger a re-fetch
+        // If no form exists, show an error message instead of creating a new one
+        console.error("No medical history form found with ID:", SPECIFIC_FORM_ID);
+        setError(`No medical history form found with ID: ${SPECIFIC_FORM_ID}`);
+        return;
       }
       
       console.log("Successfully fetched medical history form:", formData);
@@ -69,38 +69,6 @@ const MedicalHistoryOnboarding: React.FC = () => {
       toast.error("Failed to load medical history");
     } finally {
       setIsLoading(false);
-    }
-  };
-  
-  // Function to create the medical history form if it doesn't exist
-  const createMedicalHistoryForm = async () => {
-    try {
-      console.log(`Creating new medical history form with id: ${SPECIFIC_FORM_ID}`);
-      
-      // Create an empty form with the specific ID
-      const { data, error } = await supabase
-        .from('medical_history_form')
-        .insert({
-          id: SPECIFIC_FORM_ID,
-          name: FORM_NAME,
-          questions: []
-        })
-        .select();
-      
-      if (error) {
-        console.error("Error creating medical history form:", error);
-        setError(`Failed to create medical history form: ${error.message}`);
-        throw new Error(`Failed to create medical history form: ${error.message}`);
-      }
-      
-      console.log("Successfully created medical history form:", data);
-      
-      // If successful, re-fetch the form
-      fetchMedicalHistoryForm();
-    } catch (error) {
-      console.error("Error creating medical history form:", error);
-      setError(`Failed to create medical history form: ${error instanceof Error ? error.message : String(error)}`);
-      toast.error("Failed to create medical history form");
     }
   };
   
@@ -173,26 +141,13 @@ const MedicalHistoryOnboarding: React.FC = () => {
         }
       });
       
-      // Convert questions to a format compatible with the database's JSON field
-      const databaseQuestions = updatedQuestions.map(q => ({
-        ...q,
-        // Ensure all properties have appropriate types for JSON storage
-        id: q.id,
-        text: q.text,
-        answer: q.answer,
-        confidence: q.confidence,
-        answerType: q.answerType,
-        description: q.description || null,
-        source: q.source || null
-      }));
-      
-      console.log("Saving updated questions:", databaseQuestions);
+      console.log("Saving updated questions:", updatedQuestions);
       
       // Save updated questions to database - using the specific form ID
       const { error } = await supabase
         .from('medical_history_form')
         .update({
-          questions: databaseQuestions
+          questions: updatedQuestions
         })
         .eq('id', SPECIFIC_FORM_ID);
       
