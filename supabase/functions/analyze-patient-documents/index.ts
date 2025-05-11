@@ -115,10 +115,13 @@ async function createMedicalHistoryForm() {
  */
 async function fetchMedicalHistoryForm() {
   try {
+    // FIXED: Modified to always get the latest form by ordering by id descending and limiting to 1
     const { data: medicalHistoryForm, error: formError } = await supabase
       .from('medical_history_form')
       .select('*')
-      .maybeSingle();
+      .order('id', { ascending: false })
+      .limit(1)
+      .single();
 
     if (formError) {
       console.error('Error fetching medical history form:', formError);
