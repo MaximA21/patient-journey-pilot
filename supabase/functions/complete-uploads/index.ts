@@ -22,10 +22,12 @@ serve(async (req) => {
   try {
     // Extract data from request
     const { patientId, documentIds } = await req.json();
+    console.log("Received request with patientId:", patientId, "and documentIds:", documentIds);
     
     if (!patientId || !documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+      console.error("Missing or invalid patientId or documentIds");
       return new Response(
-        JSON.stringify({ error: 'Missing patientId or documentIds' }),
+        JSON.stringify({ error: 'Missing or invalid patientId or documentIds' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -44,9 +46,13 @@ serve(async (req) => {
       throw new Error(`Failed to fetch documents: ${documentsError.message}`);
     }
     
+    console.log("Found documents:", documents?.length || 0);
+    
     // Check if all uploads have been processed
-    const unprocessedDocuments = documents.filter(doc => 
-      !doc.type || !doc.llm_output);
+    const unprocessedDocuments = documents?.filter(doc => 
+      !doc.type || !doc.llm_output) || [];
+    
+    console.log("Unprocessed documents:", unprocessedDocuments.length);
     
     if (unprocessedDocuments.length > 0) {
       console.log(`${unprocessedDocuments.length} documents still processing`);
@@ -56,7 +62,7 @@ serve(async (req) => {
           message: 'Some documents still processing',
           unprocessedCount: unprocessedDocuments.length,
           unprocessedIds: unprocessedDocuments.map(doc => doc.id),
-          processedCount: documents.length - unprocessedDocuments.length
+          processedCount: (documents?.length || 0) - unprocessedDocuments.length
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -66,22 +72,27 @@ serve(async (req) => {
     console.log('All documents processed, triggering analysis');
     
     // Call the document analysis function using fetch directly to the URL
-    const analysisResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-patient-documents`, {
+    const analysisUrl = `${supabaseUrl}/functions/v1/analyze-patient-documents`;
+    console.log(`Calling analysis function at: ${analysisUrl}`);
+    
+    const analysisResponse = await fetch(analysisUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${supabaseServiceKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ patientId })
+      body: JSON.stringify({ patientId, documentIds })
     });
     
     if (!analysisResponse.ok) {
-      const errorData = await analysisResponse.json().catch(() => ({}));
-      console.error('Analysis function error:', errorData);
-      throw new Error(`Failed to trigger analysis: ${analysisResponse.status} ${analysisResponse.statusText}`);
+      const errorText = await analysisResponse.text();
+      console.error('Analysis function error status:', analysisResponse.status);
+      console.error('Analysis function error:', errorText);
+      throw new Error(`Failed to trigger analysis: ${analysisResponse.status} ${errorText}`);
     }
     
     const analysisResult = await analysisResponse.json();
+    console.log("Analysis result:", analysisResult);
     
     return new Response(
       JSON.stringify({
@@ -98,7 +109,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         error: 'Failed to process completed uploads',
-        details: error.message
+        details: error instanceof Error ? error.message : String(error)
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

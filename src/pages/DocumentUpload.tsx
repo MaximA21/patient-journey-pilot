@@ -11,7 +11,7 @@ import { Upload, X, ImagePlus, FileText, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-// Constants for Supabase URLs - use the same values from client.ts
+// Constants for Supabase URLs
 const SUPABASE_URL = "https://rkjqdxywsdikcywxggde.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJranFkeHl3c2Rpa2N5d3hnZ2RlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4NzIwOTAsImV4cCI6MjA2MjQ0ODA5MH0.mR6mCEhgr_K_WEoZ2v_5j8AdG1jxh3pp1Nk7A4mKx44";
 
@@ -120,9 +120,10 @@ const DocumentUpload: React.FC = () => {
       
       setUploadedDocs(uploadedDocuments);
       
-      // If patientId is provided, trigger document analysis after processing
+      // If patientId is provided and documents were uploaded, trigger document analysis
       if (patientId && uploadedDocuments.length > 0) {
-        await triggerDocumentAnalysis(patientId, uploadedDocuments.map(doc => doc.id));
+        const documentIds = uploadedDocuments.map(doc => doc.id);
+        await triggerDocumentAnalysis(patientId, documentIds);
       }
       
       toast.success("Documents uploaded successfully!");
@@ -150,6 +151,9 @@ const DocumentUpload: React.FC = () => {
     try {
       toast.info("Analyzing documents...");
       
+      console.log("Calling complete-uploads with:", { patientId, documentIds });
+      
+      // Make a direct fetch call to the complete-uploads endpoint
       const response = await fetch(`${SUPABASE_URL}/functions/v1/complete-uploads`, {
         method: 'POST',
         headers: {
@@ -162,7 +166,13 @@ const DocumentUpload: React.FC = () => {
         })
       });
       
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to analyze documents: ${error}`);
+      }
+      
       const result = await response.json();
+      console.log("Document analysis response:", result);
       
       if (result.success) {
         toast.success("Document analysis complete!");
@@ -181,7 +191,7 @@ const DocumentUpload: React.FC = () => {
       return result;
     } catch (error) {
       console.error("Error analyzing documents:", error);
-      toast.error("Failed to analyze documents");
+      toast.error(`Failed to analyze documents: ${error instanceof Error ? error.message : String(error)}`);
       return { success: false, error };
     }
   };

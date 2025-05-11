@@ -21,8 +21,10 @@ serve(async (req) => {
   }
 
   try {
-    // Extract patient ID from request
-    const { patientId } = await req.json();
+    // Extract patient ID and optional document IDs from request
+    const { patientId, documentIds } = await req.json();
+    console.log("Analyzing documents for patient:", patientId);
+    console.log("Document IDs provided:", documentIds);
 
     if (!patientId) {
       return new Response(
@@ -33,11 +35,19 @@ serve(async (req) => {
 
     console.log(`Starting document analysis for patient ${patientId}`);
 
-    // 1. Get all processed documents for this patient
-    const { data: documents, error: documentsError } = await supabase
+    // 1. Get processed documents for this patient
+    let documentsQuery = supabase
       .from('documents_and_images')
       .select('id, type, llm_output, display_name')
       .eq('patient_id', patientId);
+      
+    // If document IDs are provided, filter by them
+    if (documentIds && Array.isArray(documentIds) && documentIds.length > 0) {
+      documentsQuery = documentsQuery.in('id', documentIds);
+      console.log(`Filtering to ${documentIds.length} specific documents`);
+    }
+    
+    const { data: documents, error: documentsError } = await documentsQuery;
 
     if (documentsError) {
       console.error(`Error fetching documents for patient ${patientId}:`, documentsError);
@@ -144,9 +154,10 @@ Instructions:
     });
 
     if (!openaiResponse.ok) {
-      const errorData = await openaiResponse.json().catch(() => ({}));
+      const errorData = await openaiResponse.text();
+      console.error('OpenAI API error status:', openaiResponse.status);
       console.error('OpenAI API error:', errorData);
-      throw new Error(`OpenAI API error: ${openaiResponse.status} ${openaiResponse.statusText}`);
+      throw new Error(`OpenAI API error: ${openaiResponse.status} ${errorData}`);
     }
 
     const openaiData = await openaiResponse.json();
@@ -157,6 +168,7 @@ Instructions:
     try {
       // Extract the content from the response
       const responseContent = openaiData.choices[0].message.content;
+      console.log('OpenAI raw response:', responseContent);
       
       // Try to parse JSON from the response content
       // First, try to extract a JSON block if it's wrapped in markdown code blocks
@@ -168,9 +180,34 @@ Instructions:
       answersJson = JSON.parse(jsonStr);
       
       console.log('Successfully parsed answers JSON');
+      
+      // Store the results in the medical_history_form table
+      const { data: storageResult, error: storageError } = await supabase
+        .from('medical_history_form')
+        .update({ 
+          questions: questions.map(q => {
+            if (typeof q === 'object' && q.id && answersJson[q.id]) {
+              return {
+                ...q,
+                answer: answersJson[q.id].answer || answersJson[q.id],
+                confidence: answersJson[q.id].confidence || 1
+              };
+            }
+            return q;
+          })
+        })
+        .eq('id', medicalHistoryForm.id);
+        
+      if (storageError) {
+        console.error('Error storing answers in medical history form:', storageError);
+        throw new Error(`Failed to store answers: ${storageError.message}`);
+      }
+      
+      console.log('Successfully stored answers in medical history form');
+      
     } catch (e) {
-      console.error('Error parsing OpenAI response:', e);
-      throw new Error(`Failed to parse answers from OpenAI response: ${e.message}`);
+      console.error('Error parsing or storing OpenAI response:', e);
+      throw new Error(`Failed to process answers from OpenAI response: ${e instanceof Error ? e.message : String(e)}`);
     }
 
     // 8. Return the processed results
@@ -190,7 +227,7 @@ Instructions:
     return new Response(
       JSON.stringify({
         error: 'Failed to analyze patient documents',
-        details: error.message
+        details: error instanceof Error ? error.message : String(error)
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
