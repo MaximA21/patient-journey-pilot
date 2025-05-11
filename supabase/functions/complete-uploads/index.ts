@@ -21,8 +21,21 @@ serve(async (req) => {
 
   try {
     // Extract data from request
-    const { patientId, documentIds } = await req.json();
-    console.log("Received request with patientId:", patientId, "and documentIds:", documentIds);
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log("Received request body:", JSON.stringify(requestBody));
+    } catch (e) {
+      console.error("Error parsing JSON:", e);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Extract parameters from the request body
+    const { patientId, documentIds } = requestBody;
+    console.log("Extracted patientId:", patientId, "and documentIds:", documentIds);
     
     if (!patientId || !documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
       console.error("Missing or invalid patientId or documentIds");
