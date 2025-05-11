@@ -50,7 +50,7 @@ function createSuccessResponse(data: any) {
 /**
  * Fetch patient documents from the database
  */
-async function fetchPatientDocuments(patientId: string, documentIds?: string[]) {
+async function fetchPatientDocuments(patientId: string, documentIds?: number[]) {
   console.log(`Starting document analysis for patient ${patientId}`);
 
   // Build the base query
@@ -90,8 +90,14 @@ async function fetchMedicalHistoryForm() {
     throw new Error(`Failed to fetch medical history form: ${formError.message}`);
   }
 
-  if (!medicalHistoryForm || !medicalHistoryForm.questions) {
-    throw new Error('Medical history form not found or has no questions');
+  if (!medicalHistoryForm) {
+    throw new Error('Medical history form not found');
+  }
+
+  // Initialize questions as an array if it doesn't exist or isn't an array
+  if (!medicalHistoryForm.questions || !Array.isArray(medicalHistoryForm.questions)) {
+    medicalHistoryForm.questions = [];
+    console.log('Medical history form has no questions array, initializing empty array');
   }
 
   console.log(`Retrieved medical history form with ${medicalHistoryForm?.questions?.length || 0} questions`);
@@ -198,30 +204,58 @@ function parseOpenAIResponse(openaiData) {
                     [null, responseContent];
   
   const jsonStr = jsonMatch[1] ? jsonMatch[1].trim() : responseContent.trim();
-  const answersJson = JSON.parse(jsonStr);
+  let answersJson;
   
-  console.log('Successfully parsed answers JSON');
-  return answersJson;
+  try {
+    answersJson = JSON.parse(jsonStr);
+    console.log('Successfully parsed answers JSON');
+    return answersJson;
+  } catch (e) {
+    console.error('Failed to parse OpenAI response as JSON:', e);
+    console.error('Raw JSON string:', jsonStr);
+    throw new Error(`Failed to parse OpenAI response as JSON: ${e.message}`);
+  }
 }
 
 /**
  * Update medical history form with extracted answers
  */
 async function updateMedicalHistoryForm(medicalHistoryForm, answersJson) {
-  const updatedQuestions = medicalHistoryForm.questions.map(q => {
-    if (typeof q === 'object' && q.id && answersJson[q.id]) {
-      return {
-        ...q,
-        answer: answersJson[q.id].answer || answersJson[q.id],
-        confidence: answersJson[q.id].confidence || 1
-      };
-    }
-    return q;
-  });
+  // Ensure questions is an array before trying to map over it
+  if (!Array.isArray(medicalHistoryForm.questions)) {
+    console.log('Questions is not an array, initializing it');
+    medicalHistoryForm.questions = [];
+    
+    // For newly created forms, populate with questions from the answers
+    Object.keys(answersJson).forEach(questionId => {
+      const answer = answersJson[questionId];
+      medicalHistoryForm.questions.push({
+        id: questionId,
+        text: questionId,
+        answer: typeof answer === 'object' && answer.answer ? answer.answer : answer,
+        confidence: typeof answer === 'object' && answer.confidence ? answer.confidence : 1
+      });
+    });
+  } else {
+    // Update existing questions
+    const updatedQuestions = medicalHistoryForm.questions.map(q => {
+      if (typeof q === 'object' && q.id && answersJson[q.id]) {
+        const answer = answersJson[q.id];
+        return {
+          ...q,
+          answer: typeof answer === 'object' && answer.answer ? answer.answer : answer,
+          confidence: typeof answer === 'object' && answer.confidence ? answer.confidence : 1
+        };
+      }
+      return q;
+    });
+    
+    medicalHistoryForm.questions = updatedQuestions;
+  }
 
   const { error: storageError } = await supabase
     .from('medical_history_form')
-    .update({ questions: updatedQuestions })
+    .update({ questions: medicalHistoryForm.questions })
     .eq('id', medicalHistoryForm.id);
     
   if (storageError) {
@@ -230,7 +264,7 @@ async function updateMedicalHistoryForm(medicalHistoryForm, answersJson) {
   }
   
   console.log('Successfully stored answers in medical history form');
-  return updatedQuestions;
+  return medicalHistoryForm.questions;
 }
 
 // Main request handler
@@ -242,7 +276,9 @@ serve(async (req) => {
 
   try {
     // Extract patient ID and optional document IDs from request
-    const { patientId, documentIds } = await req.json();
+    const requestData = await req.json();
+    const { patientId, documentIds } = requestData;
+    
     console.log("Analyzing documents for patient:", patientId);
     console.log("Document IDs provided:", documentIds);
 
@@ -262,10 +298,32 @@ serve(async (req) => {
     }
 
     // 2. Get the medical history form questions
-    const medicalHistoryForm = await fetchMedicalHistoryForm();
+    let medicalHistoryForm;
+    try {
+      medicalHistoryForm = await fetchMedicalHistoryForm();
+    } catch (error) {
+      console.log('Medical history form not found, creating a new one');
+      
+      // Create a new form if none exists
+      const { data: newForm, error: createError } = await supabase
+        .from('medical_history_form')
+        .insert({
+          name: 'Patient Medical History',
+          questions: []
+        })
+        .select()
+        .single();
+      
+      if (createError) {
+        console.error('Error creating medical history form:', createError);
+        throw new Error(`Failed to create medical history form: ${createError.message}`);
+      }
+      
+      medicalHistoryForm = newForm;
+    }
 
     // 3. Prepare questions list from medical history form
-    const questions = medicalHistoryForm.questions;
+    const questions = medicalHistoryForm.questions || [];
 
     // 4. Prepare document descriptions list
     const documentDescriptions = prepareDocumentDescriptions(documents);
