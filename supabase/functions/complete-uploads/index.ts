@@ -40,8 +40,8 @@ serve(async (req) => {
     const { patientId = DEFAULT_PATIENT_ID, documentIds } = requestBody;
     console.log("Extracted patientId:", patientId, "and documentIds:", documentIds);
     
-    // Always use the default patient ID if none provided or invalid
-    const usePatientId = patientId || DEFAULT_PATIENT_ID;
+    // Always use the default patient ID
+    const usePatientId = DEFAULT_PATIENT_ID;
     
     if (!usePatientId || !documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
       console.error("Missing or invalid patientId or documentIds");

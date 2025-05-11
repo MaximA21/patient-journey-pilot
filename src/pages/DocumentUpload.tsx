@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -11,11 +10,7 @@ import { Upload, X, ImagePlus, FileText, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-// Constants for Supabase URLs - using full URLs to avoid env variables
-const SUPABASE_URL = "https://rkjqdxywsdikcywxggde.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJranFkeHl3c2Rpa2N5d3hnZ2RlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4NzIwOTAsImV4cCI6MjA2MjQ0ODA5MH0.mR6mCEhgr_K_WEoZ2v_5j8AdG1jxh3pp1Nk7A4mKx44";
-
-// Hardcoded patient ID as requested
+// Fixed patient ID to use for all uploads
 const FIXED_PATIENT_ID = "0ea5b69f-95cd-4dae-80f7-199922da2924";
 
 const DocumentUpload: React.FC = () => {
@@ -27,12 +22,6 @@ const DocumentUpload: React.FC = () => {
   const [processingComplete, setProcessingComplete] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const location = useLocation();
-  
-  // Extract patient ID from URL search params or use fixed ID
-  const queryParams = new URLSearchParams(location.search);
-  const urlPatientId = queryParams.get('patientId');
-  const patientId = FIXED_PATIENT_ID; // Always use the fixed patient ID
   
   // If in accessibility mode, redirect to home
   useEffect(() => {
@@ -82,8 +71,8 @@ const DocumentUpload: React.FC = () => {
       
       // Upload each file
       for (const file of files) {
-        // Always pass the fixed patient ID
-        const result = await uploadDocument(file, patientId);
+        // Always use the fixed patient ID
+        const result = await uploadDocument(file, FIXED_PATIENT_ID);
         if (result.success && result.data && result.data[0]) {
           const documentId = result.data[0].id;
           const documentUrl = result.url;
@@ -127,7 +116,7 @@ const DocumentUpload: React.FC = () => {
       // If documents were uploaded, trigger document analysis
       if (uploadedDocuments.length > 0) {
         const documentIds = uploadedDocuments.map(doc => doc.id);
-        await triggerDocumentAnalysis(patientId, documentIds);
+        await triggerDocumentAnalysis(FIXED_PATIENT_ID, documentIds);
       }
       
       toast.success("Documents uploaded successfully!");
@@ -135,11 +124,7 @@ const DocumentUpload: React.FC = () => {
       
       // Navigate after a delay to allow user to see the success message
       setTimeout(() => {
-        if (patientId) {
-          navigate(`/patients/${patientId}`);
-        } else {
-          navigate("/success");
-        }
+        navigate(`/patients/${FIXED_PATIENT_ID}`);
       }, 2000);
       
     } catch (error) {
@@ -157,32 +142,25 @@ const DocumentUpload: React.FC = () => {
       
       console.log("Calling complete-uploads with:", { patientId, documentIds });
       
-      // Make a direct fetch call to the complete-uploads endpoint
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/complete-uploads`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
+      // Make a direct call to the complete-uploads edge function
+      const { data, error } = await supabase.functions.invoke('complete-uploads', {
+        body: {
           patientId,
           documentIds
-        })
+        }
       });
       
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Failed to analyze documents: ${error}`);
+      if (error) {
+        throw error;
       }
       
-      const result = await response.json();
-      console.log("Document analysis response:", result);
+      console.log("Document analysis response:", data);
       
-      if (result.success) {
+      if (data.success) {
         toast.success("Document analysis complete!");
-      } else if (result.message === "Some documents still processing") {
+      } else if (data.message === "Some documents still processing") {
         // Some documents are still processing
-        toast.info(`${result.processedCount} of ${result.processedCount + result.unprocessedCount} documents processed`);
+        toast.info(`${data.processedCount} of ${data.processedCount + data.unprocessedCount} documents processed`);
         
         // Set up a retry after a delay
         setTimeout(() => {
@@ -192,7 +170,7 @@ const DocumentUpload: React.FC = () => {
         toast.error("Document analysis failed");
       }
       
-      return result;
+      return data;
     } catch (error) {
       console.error("Error analyzing documents:", error);
       toast.error(`Failed to analyze documents: ${error instanceof Error ? error.message : String(error)}`);
@@ -220,7 +198,7 @@ const DocumentUpload: React.FC = () => {
             
             <p className="text-uber-gray-600 mb-6">
               Please upload your medical documents, prescriptions, or test results.
-              These will be linked to patient ID: {patientId}
+              These will be linked to patient ID: {FIXED_PATIENT_ID}
             </p>
             
             <input

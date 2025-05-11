@@ -15,7 +15,7 @@ export async function uploadDocument(file: File, patientId: string | null = null
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
     // Use hardcoded patient ID as default path
     const defaultPatientId = "0ea5b69f-95cd-4dae-80f7-199922da2924";
-    const folderPath = patientId || defaultPatientId;
+    const folderPath = "uploads";
     const fileName = `${folderPath}/${uniqueId}.${fileExt}`;
     const filePath = `${fileName}`;
     
@@ -41,6 +41,8 @@ export async function uploadDocument(file: File, patientId: string | null = null
     
     // Always use the specific patient ID (either provided or default)
     const usePatientId = patientId || defaultPatientId;
+    
+    console.log(`Using patient ID for document: ${usePatientId}`);
     
     // Create record data with patient_id
     const recordData = {
