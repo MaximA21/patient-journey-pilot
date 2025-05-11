@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
@@ -82,7 +83,7 @@ async function fetchPatientDocuments(patientId: string, documentIds?: number[]) 
 async function createMedicalHistoryForm() {
   console.log('Creating a new medical history form');
 
-  // Use the updated DEFAULT_QUESTIONS constant from the imported module
+  // Use the imported DEFAULT_QUESTIONS from the types file
   const templateQuestions = DEFAULT_QUESTIONS;
 
   const { data: newForm, error: createError } = await supabase
@@ -131,7 +132,7 @@ async function fetchMedicalHistoryForm() {
     if (!medicalHistoryForm.questions || !Array.isArray(medicalHistoryForm.questions)) {
       console.log('Medical history form has no questions array, initializing with template questions');
       
-      // Use the updated DEFAULT_QUESTIONS constant
+      // Use the imported DEFAULT_QUESTIONS
       medicalHistoryForm.questions = DEFAULT_QUESTIONS;
       
       // Update the form with the template questions
