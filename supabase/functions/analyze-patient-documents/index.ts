@@ -77,18 +77,19 @@ async function fetchPatientDocuments(patientId: string, documentIds?: number[]) 
 }
 
 /**
- * Create a medical history form if none exists
+ * Create a medical history form with structured questions
  */
 async function createMedicalHistoryForm() {
   console.log('Creating a new medical history form');
 
-  // Create a template with common medical history questions
+  // Create a template with common medical history questions and their expected answer types
   const templateQuestions = [
-    { id: 'allergies', text: 'Do you have any allergies?', answer: null, confidence: 0 },
-    { id: 'medications', text: 'What medications are you currently taking?', answer: null, confidence: 0 },
-    { id: 'surgeries', text: 'Have you had any surgeries?', answer: null, confidence: 0 },
-    { id: 'conditions', text: 'Do you have any chronic medical conditions?', answer: null, confidence: 0 },
-    { id: 'family_history', text: 'Do you have any significant family medical history?', answer: null, confidence: 0 }
+    { id: "allergies", text: "Do you have any allergies?", answer: null, confidence: 0, answerType: "string", description: "List specific allergies (medications, foods, etc.) if any" },
+    { id: "medications", text: "What medications are you currently taking?", answer: null, confidence: 0, answerType: "string", description: "List all current medications with dosages if possible" },
+    { id: "surgeries", text: "Have you had any surgeries?", answer: null, confidence: 0, answerType: "string", description: "List previous surgeries with dates if available" },
+    { id: "chronic_conditions", text: "Do you have any chronic medical conditions?", answer: null, confidence: 0, answerType: "string", description: "List diagnosed chronic conditions like diabetes, hypertension, etc." },
+    { id: "family_history", text: "Do you have any significant family medical history?", answer: null, confidence: 0, answerType: "string", description: "List relevant family medical conditions, especially hereditary ones" },
+    { id: "vaccinations", text: "What vaccinations have you received?", answer: null, confidence: 0, answerType: "string", description: "List specific vaccinations and dates if available" }
   ];
 
   const { data: newForm, error: createError } = await supabase
@@ -134,13 +135,14 @@ async function fetchMedicalHistoryForm() {
     if (!medicalHistoryForm.questions || !Array.isArray(medicalHistoryForm.questions)) {
       console.log('Medical history form has no questions array, initializing with template questions');
       
-      // Create template questions
+      // Create template questions with answer types
       medicalHistoryForm.questions = [
-        { id: 'allergies', text: 'Do you have any allergies?', answer: null, confidence: 0 },
-        { id: 'medications', text: 'What medications are you currently taking?', answer: null, confidence: 0 },
-        { id: 'surgeries', text: 'Have you had any surgeries?', answer: null, confidence: 0 },
-        { id: 'conditions', text: 'Do you have any chronic medical conditions?', answer: null, confidence: 0 },
-        { id: 'family_history', text: 'Do you have any significant family medical history?', answer: null, confidence: 0 }
+        { id: "allergies", text: "Do you have any allergies?", answer: null, confidence: 0, answerType: "string", description: "List specific allergies (medications, foods, etc.) if any" },
+        { id: "medications", text: "What medications are you currently taking?", answer: null, confidence: 0, answerType: "string", description: "List all current medications with dosages if possible" },
+        { id: "surgeries", text: "Have you had any surgeries?", answer: null, confidence: 0, answerType: "string", description: "List previous surgeries with dates if available" },
+        { id: "chronic_conditions", text: "Do you have any chronic medical conditions?", answer: null, confidence: 0, answerType: "string", description: "List diagnosed chronic conditions like diabetes, hypertension, etc." },
+        { id: "family_history", text: "Do you have any significant family medical history?", answer: null, confidence: 0, answerType: "string", description: "List relevant family medical conditions, especially hereditary ones" },
+        { id: "vaccinations", text: "What vaccinations have you received?", answer: null, confidence: 0, answerType: "string", description: "List specific vaccinations and dates if available" }
       ];
       
       // Update the form with the template questions
@@ -203,21 +205,23 @@ function prepareDocumentDescriptions(documents) {
 async function callOpenAIForAnalysis(questions, documentDescriptions) {
   console.log('Calling OpenAI API...');
   
-  // Enhanced system prompt with more detailed instructions
-  const systemPrompt = `You are an AI medical assistant tasked with extracting patient information from medical documents. 
-You have been provided with medical documents and a questionnaire. Your job is to:
+  // Enhanced system prompt with more detailed and precise instructions
+  const systemPrompt = `You are an AI medical assistant specializing in extracting precise patient information from medical documents. 
+You have been provided with medical documents and a structured questionnaire. Your task is to:
 1. Carefully analyze each document description
-2. Extract relevant information that directly answers the questions in the questionnaire
-3. If a clear answer is found, provide it with high confidence
-4. If an answer is suggested but not definitive, provide it with medium confidence
-5. If no answer is found, return null with zero confidence
-6. For each answer, provide a source document ID where the information was found
-7. Be specific and extract exactly what is in the documents - do not make assumptions`;
+2. Extract specific, concrete information that directly answers the questions in the questionnaire
+3. Only include factual information actually present in the documents
+4. If a clear answer is found, provide it with high confidence (0.8-1.0)
+5. If an answer is suggested but not definitive, provide it with medium confidence (0.4-0.7)
+6. If no answer is found, return null with zero confidence
+7. For each answer, cite the specific document ID where the information was found
+8. Be as precise as possible - avoid vague phrases like "and others" or "etc."
+9. When describing medical conditions, medications, or allergies, always list specific names`;
 
   // Enhanced user prompt with clearer instructions and examples
-  const userPrompt = `Based on the following medical documents, please answer the questionnaire questions.
+  const userPrompt = `Based on the following medical documents, please answer the structured questionnaire questions.
 
-QUESTIONNAIRE:
+QUESTIONNAIRE (with expected answer types):
 ${JSON.stringify(questions, null, 2)}
 
 DOCUMENT DESCRIPTIONS:
@@ -225,14 +229,14 @@ ${JSON.stringify(documentDescriptions.map((d, idx) => `Document ${idx + 1} (ID: 
 
 INSTRUCTIONS:
 For each question, provide:
-1. The extracted answer (or null if not found)
-2. A confidence score (0.0 to 1.0) indicating how confident you are in the answer
+1. A precise, specific answer extracted from the documents (or null if not found)
+2. A confidence score (0.0 to 1.0) reflecting your certainty in the answer
 3. The source document ID where you found the information
 
 EXPECTED OUTPUT FORMAT:
 {
   "questionId1": {
-    "answer": "extracted answer text",
+    "answer": "specific, precise answer text",
     "confidence": 0.95,
     "source": "documentId"
   },
@@ -243,25 +247,45 @@ EXPECTED OUTPUT FORMAT:
   }
 }
 
-For example, if a document mentions allergies to penicillin, and there's a question with ID "allergies", you would output:
+EXAMPLES:
+
+For allergies, INSTEAD OF writing:
 {
   "allergies": {
-    "answer": "Penicillin",
-    "confidence": 0.98,
+    "answer": "Penicillin and others",
+    "confidence": 0.9,
     "source": "123"
   }
 }
 
-If no information about allergies was found in any document:
+DO write:
 {
   "allergies": {
-    "answer": null,
-    "confidence": 0,
-    "source": null
+    "answer": "Penicillin, amoxicillin, cephalosporins",
+    "confidence": 0.9,
+    "source": "123"
   }
 }
 
-REMEMBER: Output ONLY valid JSON without any additional text or explanation. If no answers can be found for any questions, return an empty object {}.`;
+For vaccinations, INSTEAD OF writing:
+{
+  "vaccinations": {
+    "answer": "Yellow fever, FSME, Hepatitis A, and other diseases",
+    "confidence": 0.9,
+    "source": "84"
+  }
+}
+
+DO write:
+{
+  "vaccinations": {
+    "answer": "Yellow fever (2019), FSME (2020-2022), Hepatitis A (2021), Tetanus (2023)",
+    "confidence": 0.9,
+    "source": "84"
+  }
+}
+
+REMEMBER: Output ONLY valid JSON without any additional text. If no answers can be found for any questions, return an empty object {}.`;
 
   try {
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -359,39 +383,80 @@ async function updateMedicalHistoryForm(medicalHistoryForm, answersJson) {
     return medicalHistoryForm.questions || [];
   }
 
-  // Ensure questions is an array before trying to map over it
-  if (!Array.isArray(medicalHistoryForm.questions)) {
-    console.log('Questions is not an array, initializing it');
+  // Ensure questions exists and is an array
+  if (!medicalHistoryForm.questions) {
     medicalHistoryForm.questions = [];
-    
-    // For newly created forms, populate with questions from the answers
-    Object.keys(answersJson).forEach(questionId => {
+  } else if (!Array.isArray(medicalHistoryForm.questions)) {
+    console.log('Questions is not an array, converting it');
+    try {
+      // Try to parse if it's a string representation of JSON
+      if (typeof medicalHistoryForm.questions === 'string') {
+        try {
+          medicalHistoryForm.questions = JSON.parse(medicalHistoryForm.questions);
+        } catch (e) {
+          console.error('Failed to parse questions string as JSON:', e);
+          medicalHistoryForm.questions = [];
+        }
+      } else {
+        // Reset to empty array if it's neither array nor parseable string
+        medicalHistoryForm.questions = [];
+      }
+    } catch (e) {
+      console.error('Error converting questions to array:', e);
+      medicalHistoryForm.questions = [];
+    }
+  }
+
+  // If questions is empty or not an array after all attempts, initialize with default questions
+  if (!Array.isArray(medicalHistoryForm.questions) || medicalHistoryForm.questions.length === 0) {
+    console.log('Initializing questions with default template');
+    medicalHistoryForm.questions = [
+      { id: "allergies", text: "Do you have any allergies?", answer: null, confidence: 0, answerType: "string", description: "List specific allergies (medications, foods, etc.) if any" },
+      { id: "medications", text: "What medications are you currently taking?", answer: null, confidence: 0, answerType: "string", description: "List all current medications with dosages if possible" },
+      { id: "surgeries", text: "Have you had any surgeries?", answer: null, confidence: 0, answerType: "string", description: "List previous surgeries with dates if available" },
+      { id: "chronic_conditions", text: "Do you have any chronic medical conditions?", answer: null, confidence: 0, answerType: "string", description: "List diagnosed chronic conditions like diabetes, hypertension, etc." },
+      { id: "family_history", text: "Do you have any significant family medical history?", answer: null, confidence: 0, answerType: "string", description: "List relevant family medical conditions, especially hereditary ones" },
+      { id: "vaccinations", text: "What vaccinations have you received?", answer: null, confidence: 0, answerType: "string", description: "List specific vaccinations and dates if available" }
+    ];
+  }
+
+  // Update existing questions or add new ones from answers
+  const updatedQuestions = [];
+  const questionIds = new Set(medicalHistoryForm.questions.map(q => q.id));
+  
+  // First, process existing questions
+  for (const q of medicalHistoryForm.questions) {
+    const questionId = q.id;
+    if (answersJson[questionId]) {
       const answer = answersJson[questionId];
-      medicalHistoryForm.questions.push({
-        id: questionId,
-        text: questionId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      updatedQuestions.push({
+        ...q,
         answer: typeof answer === 'object' && answer.answer !== undefined ? answer.answer : answer,
         confidence: typeof answer === 'object' && answer.confidence !== undefined ? answer.confidence : 1,
         source: typeof answer === 'object' && answer.source !== undefined ? answer.source : null
       });
-    });
-  } else {
-    // Update existing questions
-    const updatedQuestions = medicalHistoryForm.questions.map(q => {
-      if (typeof q === 'object' && q.id && answersJson[q.id]) {
-        const answer = answersJson[q.id];
-        return {
-          ...q,
-          answer: typeof answer === 'object' && answer.answer !== undefined ? answer.answer : answer,
-          confidence: typeof answer === 'object' && answer.confidence !== undefined ? answer.confidence : 1,
-          source: typeof answer === 'object' && answer.source !== undefined ? answer.source : null
-        };
-      }
-      return q;
-    });
-    
-    medicalHistoryForm.questions = updatedQuestions;
+    } else {
+      updatedQuestions.push(q);
+    }
   }
+  
+  // Then add any new questions from the answers that weren't in the original list
+  for (const [questionId, answer] of Object.entries(answersJson)) {
+    if (!questionIds.has(questionId)) {
+      updatedQuestions.push({
+        id: questionId,
+        text: questionId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        answer: typeof answer === 'object' && answer.answer !== undefined ? answer.answer : answer,
+        confidence: typeof answer === 'object' && answer.confidence !== undefined ? answer.confidence : 1,
+        source: typeof answer === 'object' && answer.source !== undefined ? answer.source : null,
+        answerType: "string",
+        description: "Information extracted from document"
+      });
+    }
+  }
+  
+  // Update the form with the revised questions
+  medicalHistoryForm.questions = updatedQuestions;
 
   try {
     const { error: storageError } = await supabase
