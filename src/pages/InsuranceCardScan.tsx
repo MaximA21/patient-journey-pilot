@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, RotateCw } from "lucide-react";
