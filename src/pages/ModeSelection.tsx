@@ -77,6 +77,14 @@ const ModeSelection: React.FC = () => {
               <PlusCircle size={20} />
               Create New Patient
             </Button>
+
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/welcome")}
+              className="w-full h-14 text-base flex items-center justify-center gap-3"
+            >
+              Scan Another Insurance Card
+            </Button>
           </div>
         </div>
       </div>

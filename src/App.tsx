@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider } from "@/context/AppContext";
 import { AuthProvider } from "@/context/AuthContext";
 import ModeSelection from "./pages/ModeSelection";
@@ -17,6 +17,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AccessibilityMode from "./pages/AccessibilityMode";
 import AccessibilityCamera from "./pages/AccessibilityCamera";
 import MedicalHistoryOnboarding from "./pages/MedicalHistoryOnboarding";
+import InsuranceCardScan from "./pages/InsuranceCardScan";
 
 const queryClient = new QueryClient();
 
@@ -29,7 +30,9 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<ProtectedRoute><ModeSelection /></ProtectedRoute>} />
+              <Route path="/welcome" element={<InsuranceCardScan />} />
+              <Route path="/" element={<Navigate to="/welcome" replace />} />
+              <Route path="/mode-selection" element={<ProtectedRoute><ModeSelection /></ProtectedRoute>} />
               <Route path="/upload" element={<ProtectedRoute><DocumentUpload /></ProtectedRoute>} />
               <Route path="/success" element={<ProtectedRoute><SuccessPage /></ProtectedRoute>} />
               <Route path="/new-patient" element={<ProtectedRoute><NewPatient /></ProtectedRoute>} />
